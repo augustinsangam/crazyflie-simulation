@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 3.12.4)
 project(Project LANGUAGES CXX)
 
 include(CheckCXXCompilerFlag)
-include(CheckIPOSupported)
 find_package(PkgConfig REQUIRED)
 
 set(CMAKE_CXX_STANDARD 14)
