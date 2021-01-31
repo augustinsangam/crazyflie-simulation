@@ -10,6 +10,7 @@
 #include <memory>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <utility>
@@ -35,8 +36,6 @@ extern "C" {
 #include <sys/socket.h>
 /* ::close */
 #include <unistd.h>
-
-//#include <liburing.h>
 }
 
 namespace rj = rapidjson;
@@ -66,9 +65,9 @@ public:
 
 		const auto status = ::getaddrinfo(host.c_str(), nullptr, &hints, &res);
 		if (status != 0) {
-			std::cerr << "invalid address:  " << ::gai_strerror(status)
-			          << std::endl;
-			return;
+			std::string err("invalid address: ");
+			err += ::gai_strerror(status);
+			throw std::runtime_error(err);
 		}
 
 		for (it = res; it != nullptr; it = it->ai_next) {
