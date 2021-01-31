@@ -128,31 +128,31 @@ public:
 };
 
 int main() {
-	Conn conn("localhost", 3995);
-	auto f1 = conn.connect();
-	const auto v1 = f1.get();
-	std::cout << v1 << std::endl;
+	// Conn conn("localhost", 3995);
+	// auto f1 = conn.connect();
+	// const auto v1 = f1.get();
+	// std::cout << v1 << std::endl;
 
-	auto f2 = conn.recv();
-	const auto v2 = f2.get();
-	std::cout << v2.first << std::endl;
-	delete[] v2.first; // NOLINT
+	// auto f2 = conn.recv();
+	// const auto v2 = f2.get();
+	// std::cout << v2.first << std::endl;
+	// delete[] v2.first; // NOLINT
 
-	rj::StringBuffer sb;
-	rj::Writer<rj::StringBuffer> w(sb);
+	// rj::StringBuffer sb_;
+	// rj::Writer<rj::StringBuffer> w(sb);
 
-	w.StartObject();
-	w.String("key");
-	w.String(std::string("value"));
-	w.EndObject();
+	// w.StartObject();
+	// w.String("key");
+	// w.String(std::string("value"));
+	// w.EndObject();
 
-	auto f3 = conn.send(std::make_pair(sb.GetString(), sb.GetSize()));
+	// auto f3 = conn.send(std::make_pair(sb.GetString(), sb.GetSize()));
 
-	sb.Clear();
-	w.Reset(sb);
+	// sb.Clear();
+	// w.Reset(sb);
 
-	const auto v3 = f3.get();
-	std::cout << v3 << std::endl;
+	// const auto v3 = f3.get();
+	// std::cout << v3 << std::endl;
 
-	return 0;
+	// return 0;
 }

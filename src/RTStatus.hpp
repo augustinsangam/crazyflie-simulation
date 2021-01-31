@@ -14,6 +14,8 @@
 
 class RTStatus {
 private:
+	rapidjson::StringBuffer sb;
+	rapidjson::Writer<rapidjson::StringBuffer> writer;
 	/* Drone properties */
 	std::string name;
 	argos::Real batteryLevel;
@@ -27,7 +29,7 @@ private:
 public:
 	RTStatus();
 	RTStatus(const std::string &name);
-	std::string encode() const;
+	std::string encode();
 	void update(argos::Real batteryLevel, argos::Real posX, argos::Real posY,
 	            argos::Real posZ);
 	void enable();

@@ -1,3 +1,5 @@
+#define TICKRATE 10
+
 #include <argos3/core/control_interface/ci_controller.h>
 /* Definition of the crazyflie position actuator */
 #include <argos3/plugins/robots/generic/control_interface/ci_quadrotor_position_actuator.h>
@@ -13,6 +15,7 @@
 #include <argos3/core/utility/math/vector2.h>
 /* Logging */
 #include "RTStatus.hpp"
+#include "conn.cpp"
 #include <argos3/core/utility/logging/argos_log.h>
 #include <argos3/plugins/robots/generic/control_interface/ci_leds_actuator.h>
 #include <iostream>
@@ -68,6 +71,11 @@ private:
 
 	RTStatus rtStatus;
 
+	Conn connection;
+
+	uint sendFrequency = 2; // Hertz
+	uint counter = TICKRATE;
+
 	/* Current step */
 	uint m_uiCurrentStep;
 
@@ -75,9 +83,8 @@ public:
 	/* Class constructor. */
 	CCrazyflieSensing()
 	    : m_pcPropellers(NULL), m_pcRNG(NULL), m_pcPos(NULL), m_pcBattery(NULL),
-	      m_uiCurrentStep(0) {
-		this->rtStatus = RTStatus(uuid::generate_uuid_v4());
-	}
+	      m_uiCurrentStep(0), connection("localhost", 3995),
+	      rtStatus(uuid::generate_uuid_v4()) {}
 
 	/* Class destructor. */
 	~CCrazyflieSensing() override = default;
@@ -88,6 +95,9 @@ public:
 	 * file in the <controllers><footbot_diffusion_controller> section.
 	 */
 	void Init(argos::TConfigurationNode &t_node) override {
+		auto f1 = connection.connect();
+		const auto v1 = f1.get();
+		std::cout << v1 << std::endl;
 		try {
 			/*
 			 * Initialize sensors/actuators
@@ -133,10 +143,12 @@ public:
 		rtStatus.update(sBatRead.AvailableCharge, cPos.GetX(), cPos.GetY(),
 		                cPos.GetZ());
 
-		/* X times per second, send the drone status to the socket */
-		std::string json = rtStatus.encode();
-		std::cout << json << std::endl;
-		/* socket->send(rtStatus->encode()) */
+		if (--counter < TICKRATE / sendFrequency) {
+			counter = TICKRATE;
+			std::string json = rtStatus.encode();
+			// std::cout << json << std::endl;
+			connection.send(json);
+		}
 
 		m_uiCurrentStep++;
 	}

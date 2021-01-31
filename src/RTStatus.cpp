@@ -1,20 +1,23 @@
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/writer.h>
+#define RAPIDJSON_HAS_STDSTRING 1
 #include "RTStatus.hpp"
 
 namespace rj = rapidjson;
 
 RTStatus::RTStatus()
     : name(""), batteryLevel(0), posX(0), posY(0), posZ(0), speed(0),
-      isOn(false) {}
+      isOn(false), sb(), writer(sb) {}
 
 RTStatus::RTStatus(const std::string &name)
     : name(name), batteryLevel(0), posX(0), posY(0), posZ(0), speed(0),
-      isOn(false) {
+      isOn(false), sb(), writer(sb) {
 	enable();
 }
 
-std::string RTStatus::encode() const {
-	rj::StringBuffer sb;
-	rj::Writer<rj::StringBuffer> writer(sb);
+std::string RTStatus::encode() {
+	this->sb.Clear();
+	this->writer.Reset(sb);
 
 	writer.StartObject();
 	writer.String("type");
