@@ -1,5 +1,3 @@
-#define RAPIDJSON_HAS_STDSTRING 1
-
 #include "conn.hpp"
 
 #include <cassert>
