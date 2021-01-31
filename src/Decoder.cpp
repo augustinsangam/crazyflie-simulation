@@ -1,5 +1,7 @@
 #include "Decoder.hpp"
 
+namespace rj = rapidjson;
+
 Decoder::Decoder() {
 	/* must be the same order as enum in Decoder.hpp */
 	types.emplace_back("UNKNOWN");
@@ -22,8 +24,8 @@ void Decoder::decode(const std::string &msg) {
 	case MESSAGE_TYPE::LAND:
 		std::cout << "Land()" << std::endl;
 		break;
-	case MESSAGE_TYPE::RTUPDATE:
-		decodeRTUpdate(document);
+	case MESSAGE_TYPE::ROBOT_UPDATE:
+		std::cout << "robot_update received" << std::endl;
 		break;
 	case MESSAGE_TYPE::UNKNOWN:
 		std::cout << "Unknown message received" << std::endl;
@@ -38,20 +40,4 @@ MESSAGE_TYPE Decoder::decodeType(const std::string &msg) {
 		}
 	}
 	return MESSAGE_TYPE::UNKNOWN;
-}
-
-void Decoder::decodeRTUpdate(const rj::Document &doc) {
-	const rj::Value &data = doc["data"];
-	assert(data.IsArray());
-	for (rapidjson::Value::ConstValueIterator itr = data.Begin();
-	     itr != data.End(); ++itr) {
-		const rapidjson::Value &droneRTData = *itr;
-		assert(droneRTData.IsObject());
-		for (rapidjson::Value::ConstMemberIterator itr2 =
-		         droneRTData.MemberBegin();
-		     itr2 != droneRTData.MemberEnd(); ++itr2) {
-			std::cout << itr2->name.GetString() << " : "
-			          << itr2->value.GetDouble() << std::endl;
-		}
-	}
 }
