@@ -23,12 +23,9 @@
 
     <crazyflie_sensing_controller id="ssc" library="build/libcontroller">
       <actuators>
-        <range_and_bearing implementation="default" />
         <quadrotor_position implementation="default" />
       </actuators>
       <sensors>
-        <range_and_bearing implementation="medium" medium="rab" show_rays="false" />
-        <crazyflie_distance_scanner implementation="rot_z_only" show_rays="true" />
         <positioning implementation="default" />
         <battery implementation="default" />
       </sensors>
@@ -57,9 +54,9 @@
     </box>
 
     <distribute>
-      <position method="uniform" min="-1,1,0" max="-1,1,0" />
-      <orientation method="uniform" min="0,0,0" max="360,0,0" />
-      <entity quantity="1" max_trials="100">
+      <position method="uniform" min="-2,-2,0" max="2,2,0" />
+      <orientation method="gaussian" mean="0,0,0" std_dev="360,0,0" />
+      <entity quantity="2" max_trials="100">
         <crazyflie id="s">
           <controller config="ssc" />
           <battery model="time_motion" delta="1e-3" pos_delta="1e-3" orient_delta="1e-3" />
