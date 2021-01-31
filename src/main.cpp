@@ -15,7 +15,7 @@
 #include <argos3/core/utility/math/vector2.h>
 /* Logging */
 #include "RTStatus.hpp"
-#include "conn.cpp"
+#include "conn.hpp"
 #include <argos3/core/utility/logging/argos_log.h>
 #include <argos3/plugins/robots/generic/control_interface/ci_leds_actuator.h>
 #include <iostream>
