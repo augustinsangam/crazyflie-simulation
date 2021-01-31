@@ -1,14 +1,8 @@
 #include <argos3/core/control_interface/ci_controller.h>
-/* Definition of the crazyflie distance sensor */
-#include <argos3/plugins/robots/crazyflie/control_interface/ci_crazyflie_distance_scanner_sensor.h>
 /* Definition of the crazyflie position actuator */
 #include <argos3/plugins/robots/generic/control_interface/ci_quadrotor_position_actuator.h>
 /* Definition of the crazyflie position sensor */
 #include <argos3/plugins/robots/generic/control_interface/ci_positioning_sensor.h>
-/* Definition of the crazyflie range and bearing actuator */
-#include <argos3/plugins/robots/generic/control_interface/ci_range_and_bearing_actuator.h>
-/* Definition of the crazyflie range and bearing sensor */
-#include <argos3/plugins/robots/generic/control_interface/ci_range_and_bearing_sensor.h>
 /* Definition of the crazyflie battery sensor */
 #include <argos3/plugins/robots/generic/control_interface/ci_battery_sensor.h>
 /* Definitions for random number generation */
@@ -18,22 +12,50 @@
 /* 2D vector definition */
 #include <argos3/core/utility/math/vector2.h>
 /* Logging */
+#include "RTStatus.hpp"
 #include <argos3/core/utility/logging/argos_log.h>
 #include <argos3/plugins/robots/generic/control_interface/ci_leds_actuator.h>
+#include <iostream>
+#include <ostream>
+
+namespace uuid {
+static std::random_device rd;
+static std::mt19937 gen(rd());
+static std::uniform_int_distribution<> dis(0, 15);
+static std::uniform_int_distribution<> dis2(8, 11);
+
+std::string generate_uuid_v4() {
+	std::stringstream ss;
+	int i;
+	ss << std::hex;
+	for (i = 0; i < 8; i++) {
+		ss << dis(gen);
+	}
+	ss << "-";
+	for (i = 0; i < 4; i++) {
+		ss << dis(gen);
+	}
+	ss << "-4";
+	for (i = 0; i < 3; i++) {
+		ss << dis(gen);
+	}
+	ss << "-";
+	ss << dis2(gen);
+	for (i = 0; i < 3; i++) {
+		ss << dis(gen);
+	}
+	ss << "-";
+	for (i = 0; i < 12; i++) {
+		ss << dis(gen);
+	};
+	return ss.str();
+}
+} // namespace uuid
 
 class CCrazyflieSensing : public argos::CCI_Controller {
 private:
-	/* Pointer to the crazyflie distance sensor */
-	argos::CCI_CrazyflieDistanceScannerSensor *m_pcDistance;
-
 	/* Pointer to the position actuator */
 	argos::CCI_QuadRotorPositionActuator *m_pcPropellers;
-
-	/* Pointer to the range and bearing actuator */
-	argos::CCI_RangeAndBearingActuator *m_pcRABA;
-
-	/* Pointer to the range and bearing sensor */
-	argos::CCI_RangeAndBearingSensor *m_pcRABS;
 
 	/* Pointer to the positioning sensor */
 	argos::CCI_PositioningSensor *m_pcPos;
@@ -44,15 +66,18 @@ private:
 	/* The random number generator */
 	argos::CRandom::CRNG *m_pcRNG;
 
+	RTStatus rtStatus;
+
 	/* Current step */
 	uint m_uiCurrentStep;
 
 public:
 	/* Class constructor. */
 	CCrazyflieSensing()
-	    : m_pcDistance(NULL), m_pcPropellers(NULL), m_pcRNG(NULL),
-	      m_pcRABA(NULL), m_pcRABS(NULL), m_pcPos(NULL), m_pcBattery(NULL),
-	      m_uiCurrentStep(0) {}
+	    : m_pcPropellers(NULL), m_pcRNG(NULL), m_pcPos(NULL), m_pcBattery(NULL),
+	      m_uiCurrentStep(0) {
+		this->rtStatus = RTStatus(uuid::generate_uuid_v4());
+	}
 
 	/* Class destructor. */
 	~CCrazyflieSensing() override = default;
@@ -67,15 +92,8 @@ public:
 			/*
 			 * Initialize sensors/actuators
 			 */
-			m_pcDistance = GetSensor<argos::CCI_CrazyflieDistanceScannerSensor>(
-			    "crazyflie_distance_scanner");
 			m_pcPropellers = GetActuator<argos::CCI_QuadRotorPositionActuator>(
 			    "quadrotor_position");
-			/* Get pointers to devices */
-			m_pcRABA = GetActuator<argos::CCI_RangeAndBearingActuator>(
-			    "range_and_bearing");
-			m_pcRABS = GetSensor<argos::CCI_RangeAndBearingSensor>(
-			    "range_and_bearing");
 			try {
 				m_pcPos =
 				    GetSensor<argos::CCI_PositioningSensor>("positioning");
@@ -95,6 +113,7 @@ public:
 		m_pcRNG = argos::CRandom::CreateRNG("argos");
 
 		m_uiCurrentStep = 0;
+		std::cout << "Init OK" << std::endl;
 		Reset();
 	}
 
@@ -103,42 +122,21 @@ public:
 	 * The length of the time step is set in the XML file.
 	 */
 	void ControlStep() override {
-		/*if (--cnt_ == 0) {
-		    cnt_ = 10;
-		    m_pcLEDs_->SetAllColors(led_state_ ? argos::CColor::BLACK
-		                                       : argos::CColor::RED);
-		    led_state_ = !led_state_;
-		}*/
-
 		m_pcPropellers->SetRelativeYaw(argos::CRadians::PI_OVER_SIX);
 
-		// Takeoff/Land
-		if ((m_uiCurrentStep / 10) % 2 == 0) {
-			TakeOff();
-		} else {
-			Land();
-		}
-		// Look battery level
+		// Retrieve drone data
 		const argos::CCI_BatterySensor::SReading &sBatRead =
 		    m_pcBattery->GetReading();
-		argos::LOG << "Battery level: " << sBatRead.AvailableCharge
-		           << std::endl;
+		argos::CVector3 cPos = m_pcPos->GetReading().Position;
 
-		// Look here for documentation on the distance sensor:
-		// /root/argos3/src/plugins/robots/crazyflie/control_interface/ci_crazyflie_distance_scanner_sensor.h
-		// Read distance sensor
-		argos::CCI_CrazyflieDistanceScannerSensor::TReadingsMap sDistRead =
-		    m_pcDistance->GetReadingsMap();
-		auto iterDistRead = sDistRead.begin();
-		if (sDistRead.size() == 4) {
-			argos::LOG << "Front dist: " << (iterDistRead++)->second
-			           << std::endl;
-			argos::LOG << "Left dist: " << (iterDistRead++)->second
-			           << std::endl;
-			argos::LOG << "Back dist: " << (iterDistRead++)->second
-			           << std::endl;
-			argos::LOG << "Right dist: " << (iterDistRead)->second << std::endl;
-		}
+		// Update drone status
+		rtStatus.update(sBatRead.AvailableCharge, cPos.GetX(), cPos.GetY(),
+		                cPos.GetZ());
+
+		/* X times per second, send the drone status to the socket */
+		std::string json = rtStatus.encode();
+		std::cout << json << std::endl;
+		/* socket->send(rtStatus->encode()) */
 
 		m_uiCurrentStep++;
 	}
