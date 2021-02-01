@@ -1,7 +1,6 @@
-#define TICKRATE 10
-
+#include "Conn.hpp"
 #include "RTStatus.hpp"
-#include "conn.hpp"
+#include "UUID.hpp"
 #include <argos3/core/control_interface/ci_controller.h>
 #include <argos3/core/utility/configuration/argos_configuration.h>
 #include <argos3/core/utility/logging/argos_log.h>
@@ -11,74 +10,37 @@
 #include <argos3/plugins/robots/generic/control_interface/ci_leds_actuator.h>
 #include <argos3/plugins/robots/generic/control_interface/ci_positioning_sensor.h>
 #include <argos3/plugins/robots/generic/control_interface/ci_quadrotor_position_actuator.h>
+#include <bits/stdint-uintn.h>
+#include <cstdint>
 #include <iostream>
 #include <ostream>
 #include <random>
 
-namespace uuid {
-static std::random_device rd;
-static std::mt19937 gen(rd());
-static std::uniform_int_distribution<> dis(0, 15);
-static std::uniform_int_distribution<> dis2(8, 11);
-
-std::string generate_uuid_v4() {
-	std::stringstream ss;
-	int i;
-	ss << std::hex;
-	for (i = 0; i < 8; i++) {
-		ss << dis(gen);
-	}
-	ss << "-";
-	for (i = 0; i < 4; i++) {
-		ss << dis(gen);
-	}
-	ss << "-4";
-	for (i = 0; i < 3; i++) {
-		ss << dis(gen);
-	}
-	ss << "-";
-	ss << dis2(gen);
-	for (i = 0; i < 3; i++) {
-		ss << dis(gen);
-	}
-	ss << "-";
-	for (i = 0; i < 12; i++) {
-		ss << dis(gen);
-	};
-	return ss.str();
-}
-} // namespace uuid
-
 class CCrazyflieSensing : public argos::CCI_Controller {
 private:
+	// 8 ticks per second
+	static constexpr const uint8_t tick_rate_{8};
+	// 2 pulses per second
+	static constexpr const uint8_t pulse_rate_{2};
+	// 1 pule each n ticks
+	static constexpr const uint_fast8_t tick_pulse_{tick_rate_ / pulse_rate_};
+
+	uint32_t tick_count_{};
+	Conn conn_;
+	RTStatus rt_status_;
+
 	/* Pointer to the position actuator */
-	argos::CCI_QuadRotorPositionActuator *m_pcPropellers;
+	argos::CCI_QuadRotorPositionActuator *m_pcPropellers{};
 
 	/* Pointer to the positioning sensor */
-	argos::CCI_PositioningSensor *m_pcPos;
+	argos::CCI_PositioningSensor *m_pcPos{};
 
 	/* Pointer to the battery sensor */
-	argos::CCI_BatterySensor *m_pcBattery;
-
-	/* The random number generator */
-	argos::CRandom::CRNG *m_pcRNG;
-
-	RTStatus rtStatus;
-
-	Conn connection;
-
-	uint sendFrequency = 2; // Hertz
-	uint counter = TICKRATE;
-
-	/* Current step */
-	uint m_uiCurrentStep;
+	argos::CCI_BatterySensor *m_pcBattery{};
 
 public:
 	/* Class constructor. */
-	CCrazyflieSensing()
-	    : m_pcPropellers(NULL), m_pcRNG(NULL), m_pcPos(NULL), m_pcBattery(NULL),
-	      m_uiCurrentStep(0), connection("localhost", 3995),
-	      rtStatus(uuid::generate_uuid_v4()) {}
+	CCrazyflieSensing() : conn_("localhost", 3995), rt_status_(uuid_gen()) {}
 
 	/* Class destructor. */
 	~CCrazyflieSensing() override = default;
@@ -88,37 +50,19 @@ public:
 	 * The 't_node' variable points to the <parameters> section in the XML
 	 * file in the <controllers><footbot_diffusion_controller> section.
 	 */
-	void Init(argos::TConfigurationNode &t_node) override {
-		auto f1 = connection.connect();
+	void Init(argos::TConfigurationNode & /*t_node*/) override {
+		auto f1 = conn_.connect();
 		const auto v1 = f1.get();
 		std::cout << v1 << std::endl;
-		try {
-			/*
-			 * Initialize sensors/actuators
-			 */
-			m_pcPropellers = GetActuator<argos::CCI_QuadRotorPositionActuator>(
-			    "quadrotor_position");
-			try {
-				m_pcPos =
-				    GetSensor<argos::CCI_PositioningSensor>("positioning");
-			} catch (argos::CARGoSException &ex) {
-			}
-			try {
-				m_pcBattery = GetSensor<argos::CCI_BatterySensor>("battery");
-			} catch (argos::CARGoSException &ex) {
-			}
-		} catch (argos::CARGoSException &ex) {
-		}
-		/*
-		 * Initialize other stuff
-		 */
-		/* Create a random number generator. We use the 'argos' category so
-		   that creation, reset, seeding and cleanup are managed by ARGoS. */
-		m_pcRNG = argos::CRandom::CreateRNG("argos");
 
-		m_uiCurrentStep = 0;
+		m_pcPropellers = GetActuator<argos::CCI_QuadRotorPositionActuator>(
+		    "quadrotor_position");
+
+		m_pcPos = GetSensor<argos::CCI_PositioningSensor>("positioning");
+
+		m_pcBattery = GetSensor<argos::CCI_BatterySensor>("battery");
+
 		std::cout << "Init OK" << std::endl;
-		Reset();
 	}
 
 	/*
@@ -133,18 +77,21 @@ public:
 		    m_pcBattery->GetReading();
 		argos::CVector3 cPos = m_pcPos->GetReading().Position;
 
+		cPos.SetX(cPos.GetX() + 0.1);
+		m_pcPropellers->SetAbsolutePosition(cPos);
+
 		// Update drone status
-		rtStatus.update(sBatRead.AvailableCharge,
-		                Vec4(cPos.GetX(), cPos.GetY(), cPos.GetZ()));
+		rt_status_.update(static_cast<std::float_t>(sBatRead.AvailableCharge),
+		                  Vec4(static_cast<std::float_t>(cPos.GetX()),
+		                       static_cast<std::float_t>(cPos.GetY()),
+		                       static_cast<std::float_t>(cPos.GetZ())));
 
-		if (--counter < TICKRATE / sendFrequency) {
-			counter = TICKRATE;
-			std::string json = rtStatus.encode();
+		if (tick_count_ % tick_pulse_ == 0) {
+			std::string json = rt_status_.encode();
 			// std::cout << json << std::endl;
-			connection.send(json);
+			conn_.send(json);
 		}
-
-		m_uiCurrentStep++;
+		++tick_count_;
 	}
 
 	/*
@@ -155,7 +102,7 @@ public:
 	 * so the function could have been omitted. It's here just for
 	 * completeness.
 	 */
-	void Reset() override {}
+	void Reset() override { tick_count_ = 0; }
 
 	/*
 	 * Called to cleanup what done by Init() when the experiment finishes.
@@ -167,10 +114,11 @@ public:
 
 	bool TakeOff() {
 		argos::CVector3 cPos = m_pcPos->GetReading().Position;
-		if (argos::Abs(cPos.GetZ() - 2.0f) < 0.01f) {
+		if (argos::Abs(cPos.GetZ() - 2) < 0.01) {
 			return false;
 		}
-		cPos.SetZ(2.0f);
+
+		cPos.SetZ(2);
 		m_pcPropellers->SetAbsolutePosition(cPos);
 		return true;
 	}
