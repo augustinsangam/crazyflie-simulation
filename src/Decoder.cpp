@@ -1,4 +1,6 @@
 #include "Decoder.hpp"
+#include <iostream>
+#include <rapidjson/document.h>
 
 namespace rj = rapidjson;
 
@@ -12,7 +14,9 @@ Decoder::Decoder() {
 
 void Decoder::decode(const std::string &msg) {
 	rj::Document document;
+
 	document.Parse<0>(msg.c_str());
+
 	std::string msgType = document["type"].GetString();
 	std::cout << msgType << std::endl;
 	MESSAGE_TYPE type = decodeType(msgType);

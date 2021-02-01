@@ -1,25 +1,19 @@
 #define TICKRATE 10
 
-#include <argos3/core/control_interface/ci_controller.h>
-/* Definition of the crazyflie position actuator */
-#include <argos3/plugins/robots/generic/control_interface/ci_quadrotor_position_actuator.h>
-/* Definition of the crazyflie position sensor */
-#include <argos3/plugins/robots/generic/control_interface/ci_positioning_sensor.h>
-/* Definition of the crazyflie battery sensor */
-#include <argos3/plugins/robots/generic/control_interface/ci_battery_sensor.h>
-/* Definitions for random number generation */
-#include <argos3/core/utility/math/rng.h>
-/* Function definitions for XML parsing */
-#include <argos3/core/utility/configuration/argos_configuration.h>
-/* 2D vector definition */
-#include <argos3/core/utility/math/vector2.h>
-/* Logging */
 #include "RTStatus.hpp"
 #include "conn.hpp"
+#include <argos3/core/control_interface/ci_controller.h>
+#include <argos3/core/utility/configuration/argos_configuration.h>
 #include <argos3/core/utility/logging/argos_log.h>
+#include <argos3/core/utility/math/rng.h>
+#include <argos3/core/utility/math/vector2.h>
+#include <argos3/plugins/robots/generic/control_interface/ci_battery_sensor.h>
 #include <argos3/plugins/robots/generic/control_interface/ci_leds_actuator.h>
+#include <argos3/plugins/robots/generic/control_interface/ci_positioning_sensor.h>
+#include <argos3/plugins/robots/generic/control_interface/ci_quadrotor_position_actuator.h>
 #include <iostream>
 #include <ostream>
+#include <random>
 
 namespace uuid {
 static std::random_device rd;
@@ -140,8 +134,8 @@ public:
 		argos::CVector3 cPos = m_pcPos->GetReading().Position;
 
 		// Update drone status
-		rtStatus.update(sBatRead.AvailableCharge, cPos.GetX(), cPos.GetY(),
-		                cPos.GetZ());
+		rtStatus.update(sBatRead.AvailableCharge,
+		                Vec4(cPos.GetX(), cPos.GetY(), cPos.GetZ()));
 
 		if (--counter < TICKRATE / sendFrequency) {
 			counter = TICKRATE;
@@ -183,9 +177,11 @@ public:
 
 	bool Land() {
 		argos::CVector3 cPos = m_pcPos->GetReading().Position;
-		if (argos::Abs(cPos.GetZ()) < 0.01f)
+		if (argos::Abs(cPos.GetZ()) < 0.01) {
 			return false;
-		cPos.SetZ(0.0f);
+		}
+
+		cPos.SetZ(0);
 		m_pcPropellers->SetAbsolutePosition(cPos);
 		return true;
 	}

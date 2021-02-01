@@ -1,14 +1,9 @@
 #include "conn.hpp"
 
 #include <cassert>
-#include <cstdio>
-#include <cstring>
 #include <functional>
-#include <iostream>
 #include <memory>
 #include <stdexcept>
-#include <thread>
-#include <utility>
 
 extern "C" {
 /* ::htons */

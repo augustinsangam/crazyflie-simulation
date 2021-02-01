@@ -1,38 +1,36 @@
-#include "rapidjson/rapidjson.h"
-#include "rapidjson/stringbuffer.h"
-#include "rapidjson/writer.h"
-#include <argos3/core/utility/datatypes/datatypes.h>
-#include <bits/stdc++.h>
-#include <cstring>
-#include <ctime>
-#include <iostream>
-#include <map>
-#include <math.h>
-#include <ostream>
+#include "Vec4.hpp"
+#include <cmath>
 #include <string>
-#include <unordered_map>
+
+#include <memory>
+
+#include <rapidjson/document.h>
+#include <rapidjson/pointer.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/writer.h>
 
 class RTStatus {
 private:
-	rapidjson::StringBuffer sb;
-	rapidjson::Writer<rapidjson::StringBuffer> writer;
-	/* Drone properties */
-	std::string name;
-	argos::Real batteryLevel;
-	argos::Real posX;
-	argos::Real posY;
-	argos::Real posZ;
-	int speed;
-	bool isOn;
-	// ...
+	bool is_on_;
+	std::string name_;
+	std::float_t speed_;
+	std::float_t battery_;
+	Vec4 pos_;
+
+	rapidjson::Document d_;
+	rapidjson::StringBuffer sb_;
+	rapidjson::Writer<rapidjson::StringBuffer> w_;
 
 public:
-	RTStatus();
-	RTStatus(const std::string &name);
+	explicit RTStatus(std::string name);
+
 	std::string encode();
-	void update(argos::Real batteryLevel, argos::Real posX, argos::Real posY,
-	            argos::Real posZ);
+
+	void update(std::float_t battery, const Vec4 &pos);
+
 	void enable();
+
 	void disable();
+
 	void print() const;
 };

@@ -1,76 +1,71 @@
-#include <rapidjson/stringbuffer.h>
-#include <rapidjson/writer.h>
-#define RAPIDJSON_HAS_STDSTRING 1
 #include "RTStatus.hpp"
+#include "Vec3.hpp"
+#include <array>
+#include <ctime>
+#include <utility>
 
-namespace rj = rapidjson;
+#include <iostream>
 
-RTStatus::RTStatus()
-    : name(""), batteryLevel(0), posX(0), posY(0), posZ(0), speed(0),
-      isOn(false), sb(), writer(sb) {}
+static const std::array<const rapidjson::GenericPointer<rapidjson::Value>, 6>
+    p = {rapidjson::Pointer("/data/timestamp"),
+         rapidjson::Pointer("/data/battery"),
+         rapidjson::Pointer("/data/speed"),
+         rapidjson::Pointer("/data/position/0"),
+         rapidjson::Pointer("/data/position/1"),
+         rapidjson::Pointer("/data/position/2")};
 
-RTStatus::RTStatus(const std::string &name)
-    : name(name), batteryLevel(0), posX(0), posY(0), posZ(0), speed(0),
-      isOn(false), sb(), writer(sb) {
+RTStatus::RTStatus(std::string name)
+    : is_on_{false}, name_(std::move(name)), speed_{0}, battery_{0}, pos_(0),
+      d_(rapidjson::kObjectType), w_(sb_) {
+
 	enable();
+
+	auto &allocator = d_.GetAllocator();
+
+	d_.AddMember("type", "robot_update", allocator);
+
+	rapidjson::Value data_(rapidjson::kObjectType);
+	data_.AddMember("name", name_, allocator);
+	data_.AddMember("is_on", is_on_, allocator);
+
+	d_.AddMember("data", data_, allocator);
 }
 
 std::string RTStatus::encode() {
-	this->sb.Clear();
-	this->writer.Reset(sb);
+	sb_.Clear();
+	w_.Reset(sb_);
 
-	writer.StartObject();
-	writer.String("type");
-	writer.String("robot_update");
-	writer.String("data");
-	writer.StartObject();
-	writer.String("name");
-	writer.String(name.c_str());
-	writer.String("speed");
-	writer.Double(speed);
-	writer.String("batteryPercentage");
-	writer.Double(batteryLevel * 100);
-	writer.String("localisation");
-	writer.StartObject();
-	writer.String("x");
-	writer.Double(posX);
-	writer.String("y");
-	writer.Double(posY);
-	writer.String("z");
-	writer.Double(posZ);
-	writer.EndObject();
-	writer.String("lastUpdate");
-	writer.Int64(std::time(nullptr));
-	writer.String("isOn");
-	writer.Bool(isOn);
-	writer.EndObject();
+	auto &allocator = d_.GetAllocator();
+	p[0].Set(d_, std::time(nullptr), allocator);
+	p[1].Set(d_, battery_, allocator);
+	p[2].Set(d_, speed_, allocator);
+	p[3].Set(d_, pos_.x(), allocator);
+	p[4].Set(d_, pos_.y(), allocator);
+	p[5].Set(d_, pos_.z(), allocator);
 
-	return sb.GetString();
+	d_.Accept(w_);
+
+	return sb_.GetString();
 }
 
-void RTStatus::update(argos::Real batteryLevelU, argos::Real posXU,
-                      argos::Real posYU, argos::Real posZU) {
-	if (!isOn) {
+void RTStatus::update(std::float_t battery, const Vec4 &pos) {
+	if (!is_on_) {
 		return;
 	}
-	this->batteryLevel = batteryLevelU;
-	double dist = sqrt(pow(posXU - posX, 2) + pow(posYU - posY, 2) +
-	                   pow(posZU - posZ, 2));
+
+	battery_ = battery;
 	/* 10 is the tickrate in <framework> in config.xml */
-	this->speed = dist / (double)10;
-	this->posX = posXU;
-	this->posY = posYU;
-	this->posZ = posZU;
+	speed_ = Vec3::norm(Vec3::sub(pos, pos_)) / 10;
+	pos_ = pos;
 };
 
-void RTStatus::enable() { isOn = true; }
+void RTStatus::enable() { is_on_ = true; }
 
-void RTStatus::disable() { isOn = false; }
+void RTStatus::disable() { is_on_ = false; }
 
 void RTStatus::print() const {
 	std::cout << "Updated data : " << std::endl
-	          << "battery_level: " << this->batteryLevel << std::endl
-	          << "posX: " << this->posX << std::endl
-	          << "posY: " << this->posY << std::endl
-	          << "posZ: " << this->posZ << std::endl;
+	          << "battery_level: " << battery_ << std::endl
+	          << "pos: " << pos_.x() << " " << pos_.y() << " " << pos_.z()
+	          << std::endl;
 }
