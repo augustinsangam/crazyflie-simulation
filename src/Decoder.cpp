@@ -10,11 +10,12 @@ Decoder::Decoder() {
 	types.emplace_back("take_off");
 	types.emplace_back("land");
 	types.emplace_back("robot_update");
+	types.emplace_back("none");
 }
 
-void Decoder::decode(const std::string &msg) {
+MESSAGE_TYPE Decoder::decode(const std::string &msg) {
 	rj::Document document;
-
+	std::cout << "Decoding " << msg << std::endl;
 	document.Parse<0>(msg.c_str());
 
 	std::string msgType = document["type"].GetString();
@@ -34,7 +35,11 @@ void Decoder::decode(const std::string &msg) {
 	case MESSAGE_TYPE::UNKNOWN:
 		std::cout << "Unknown message received" << std::endl;
 		break;
+	case MESSAGE_TYPE::NONE:
+		std::cout << "None received" << std::endl;
+		break;
 	}
+	return type;
 };
 
 MESSAGE_TYPE Decoder::decodeType(const std::string &msg) {

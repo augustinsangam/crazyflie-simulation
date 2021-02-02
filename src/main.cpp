@@ -1,4 +1,5 @@
 #include "Conn.hpp"
+#include "Decoder.hpp"
 #include "RTStatus.hpp"
 #include "UUID.hpp"
 #include <argos3/core/control_interface/ci_controller.h>
@@ -15,6 +16,8 @@
 #include <iostream>
 #include <ostream>
 #include <random>
+#include <string>
+#include <thread>
 
 class CCrazyflieSensing : public argos::CCI_Controller {
 private:
@@ -28,6 +31,8 @@ private:
 	uint32_t tick_count_{};
 	Conn conn_;
 	RTStatus rt_status_;
+	Decoder decoder_;
+	MESSAGE_TYPE next_command_;
 
 	/* Pointer to the position actuator */
 	argos::CCI_QuadRotorPositionActuator *m_pcPropellers{};
@@ -40,7 +45,9 @@ private:
 
 public:
 	/* Class constructor. */
-	CCrazyflieSensing() : conn_("localhost", 3995), rt_status_(uuid_gen()) {}
+	CCrazyflieSensing()
+	    : conn_("localhost", 3995), rt_status_(uuid_gen()), decoder_(),
+	      next_command_(MESSAGE_TYPE::NONE) {}
 
 	/* Class destructor. */
 	~CCrazyflieSensing() override = default;
@@ -63,6 +70,9 @@ public:
 		m_pcBattery = GetSensor<argos::CCI_BatterySensor>("battery");
 
 		std::cout << "Init OK" << std::endl;
+
+		std::thread commandReceiver(commandsReceiver, this);
+		commandReceiver.detach();
 	}
 
 	/*
@@ -90,6 +100,16 @@ public:
 			std::string json = rt_status_.encode();
 			// std::cout << json << std::endl;
 			conn_.send(json);
+		}
+		switch (next_command_) {
+		case MESSAGE_TYPE::TAKEOFF:
+			TakeOff();
+			break;
+		case MESSAGE_TYPE::LAND:
+			Land();
+			break;
+		default:
+			break;
 		}
 		++tick_count_;
 	}
@@ -132,6 +152,14 @@ public:
 		cPos.SetZ(0);
 		m_pcPropellers->SetAbsolutePosition(cPos);
 		return true;
+	}
+
+	static void commandsReceiver(CCrazyflieSensing *ccfls) {
+		std::cout << "Receiving" << std::endl;
+		auto fut = ccfls->conn_.recv();
+		const auto msg = fut.get();
+		std::cout << "Received something" << std::endl;
+		ccfls->next_command_ = ccfls->decoder_.decode(msg.first);
 	}
 };
 

@@ -5,7 +5,8 @@ enum class MESSAGE_TYPE {
 	UNKNOWN = 0,
 	TAKEOFF = 1,
 	LAND = 2,
-	ROBOT_UPDATE = 3
+	ROBOT_UPDATE = 3,
+	NONE = 4
 };
 
 class Decoder {
@@ -17,5 +18,5 @@ private:
 public:
 	Decoder();
 
-	void decode(const std::string &msg);
+	MESSAGE_TYPE decode(const std::string &msg);
 };
