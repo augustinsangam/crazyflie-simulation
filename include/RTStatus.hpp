@@ -11,7 +11,7 @@
 
 class RTStatus {
 private:
-	bool is_on_;
+	bool flying_;
 	std::string name_;
 	std::float_t speed_;
 	std::float_t battery_;

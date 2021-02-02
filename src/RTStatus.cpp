@@ -15,7 +15,7 @@ static const std::array<const rapidjson::GenericPointer<rapidjson::Value>, 6>
          rapidjson::Pointer("/data/position/2")};
 
 RTStatus::RTStatus(std::string name)
-    : is_on_{false}, name_(std::move(name)), speed_{0}, battery_{0}, pos_(0),
+    : flying_{false}, name_(std::move(name)), speed_{0}, battery_{0}, pos_(0),
       d_(rapidjson::kObjectType), w_(sb_) {
 
 	enable();
@@ -26,7 +26,7 @@ RTStatus::RTStatus(std::string name)
 
 	rapidjson::Value data_(rapidjson::kObjectType);
 	data_.AddMember("name", name_, allocator);
-	data_.AddMember("is_on", is_on_, allocator);
+	data_.AddMember("is_on", flying_, allocator);
 
 	d_.AddMember("data", data_, allocator);
 }
@@ -49,7 +49,7 @@ std::string RTStatus::encode() {
 }
 
 void RTStatus::update(std::float_t battery, const Vec4 &pos) {
-	if (!is_on_) {
+	if (!flying_) {
 		return;
 	}
 
@@ -59,9 +59,9 @@ void RTStatus::update(std::float_t battery, const Vec4 &pos) {
 	pos_ = pos;
 };
 
-void RTStatus::enable() { is_on_ = true; }
+void RTStatus::enable() { flying_ = true; }
 
-void RTStatus::disable() { is_on_ = false; }
+void RTStatus::disable() { flying_ = false; }
 
 void RTStatus::print() const {
 	std::cout << "Updated data : " << std::endl
