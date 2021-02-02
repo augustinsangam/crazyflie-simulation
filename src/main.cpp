@@ -87,9 +87,6 @@ public:
 		    m_pcBattery->GetReading();
 		argos::CVector3 cPos = m_pcPos->GetReading().Position;
 
-		cPos.SetX(cPos.GetX() + 0.1);
-		m_pcPropellers->SetAbsolutePosition(cPos);
-
 		// Update drone status
 		rt_status_.update(static_cast<std::float_t>(sBatRead.AvailableCharge),
 		                  Vec4(static_cast<std::float_t>(cPos.GetX()),
@@ -134,22 +131,30 @@ public:
 	void Destroy() override {}
 
 	bool TakeOff() {
+		std::cout << "TAKEOFF" << std::endl;
+
 		argos::CVector3 cPos = m_pcPos->GetReading().Position;
 		if (argos::Abs(cPos.GetZ() - 2) < 0.01) {
 			return false;
 		}
+
 		rt_status_.enable();
+
 		cPos.SetZ(2);
 		m_pcPropellers->SetAbsolutePosition(cPos);
 		return true;
 	}
 
 	bool Land() {
+		std::cout << "LAND" << std::endl;
+
 		argos::CVector3 cPos = m_pcPos->GetReading().Position;
 		if (argos::Abs(cPos.GetZ()) < 0.01) {
 			return false;
 		}
+
 		rt_status_.disable();
+
 		cPos.SetZ(0);
 		m_pcPropellers->SetAbsolutePosition(cPos);
 		return true;

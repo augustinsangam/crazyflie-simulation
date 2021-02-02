@@ -19,8 +19,6 @@ RTStatus::RTStatus(std::string name)
     : flying_{false}, name_(std::move(name)), speed_{0}, battery_{0}, pos_(0),
       d_(rapidjson::kObjectType), w_(sb_) {
 
-	enable();
-
 	auto &allocator = d_.GetAllocator();
 
 	d_.AddMember("type", "robot_update", allocator);

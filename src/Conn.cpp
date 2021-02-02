@@ -95,7 +95,7 @@ std::future<conn> Conn::send(std::unique_ptr<std::vector<char>> v) const {
 		return wc >= 0 ? conn::ok : conn::unknown;
 	});
 }
-#include <iostream>
+
 std::future<std::pair<char *, ssize_t>> Conn::recv() const {
 	assert(connected_); // NOLINT
 	return std::async([&]() {
