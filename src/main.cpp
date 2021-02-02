@@ -111,6 +111,7 @@ public:
 		default:
 			break;
 		}
+		next_command_ = MESSAGE_TYPE::NONE;
 		++tick_count_;
 	}
 
@@ -155,11 +156,13 @@ public:
 	}
 
 	static void commandsReceiver(CCrazyflieSensing *ccfls) {
-		std::cout << "Receiving" << std::endl;
-		auto fut = ccfls->conn_.recv();
-		const auto msg = fut.get();
-		std::cout << "Received something" << std::endl;
-		ccfls->next_command_ = ccfls->decoder_.decode(msg.first);
+		for (;;) {
+			std::cout << "Receiving" << std::endl;
+			auto fut = ccfls->conn_.recv();
+			const auto msg = fut.get();
+			std::cout << "Received something" << std::endl;
+			ccfls->next_command_ = ccfls->decoder_.decode(msg.first);
+		}
 	}
 };
 
