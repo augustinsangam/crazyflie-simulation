@@ -1,6 +1,7 @@
 #ifndef CONN_HPP
 #define CONN_HPP
 
+#include <cstddef>
 #include <cstdint>
 #include <future>
 #include <string>
@@ -18,6 +19,8 @@ enum conn : int_fast8_t {
 };
 
 class Conn { // NOLINT
+	static constexpr const std::size_t buf_len{65536};
+
 	bool connected_{};
 	int sock_;
 	struct sockaddr_in addr_;

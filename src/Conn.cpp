@@ -91,10 +91,10 @@ std::future<conn> Conn::send(std::unique_ptr<std::vector<char>> v) const {
 }
 
 std::future<std::pair<char *, ssize_t>> Conn::recv() const {
-	assert(connected_);          // NOLINT
-	auto *buf = new char[65536]; // NOLINT
-	return std::async([&, buf]() {
-		const auto rc = ::recv(sock_, buf, sizeof buf, 0);
+	assert(connected_); // NOLINT
+	return std::async([&]() {
+		auto *buf = new char[buf_len]; // NOLINT
+		const auto rc = ::recv(sock_, buf, buf_len, 0);
 		return std::make_pair(buf, rc);
 	});
 }
