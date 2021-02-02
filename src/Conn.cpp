@@ -27,9 +27,8 @@ extern "C" {
 }
 
 Conn::Conn(const std::string &host, uint16_t port)
-    : sock_{::socket(AF_INET, SOCK_STREAM, 0)}, addr_{.sin_family = AF_INET,
-                                                      .sin_port =
-                                                          ::htons(port)} {
+    : sock_{::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)},
+      addr_{.sin_family = AF_INET, .sin_port = ::htons(port)} {
 	struct addrinfo *it, *res,
 	    hints{.ai_family = AF_INET, .ai_socktype = SOCK_STREAM};
 
@@ -60,15 +59,22 @@ Conn::Conn(const std::string &host, uint16_t port)
 	::freeaddrinfo(res);
 }
 
-Conn::~Conn() { ::close(sock_); }
+Conn::~Conn() { disconnect(); }
 
 std::future<conn> Conn::connect() {
 	return std::async(std::launch::async, [&]() {
 		const auto *addr = reinterpret_cast<const sockaddr *>(&addr_);
 		const auto status = ::connect(sock_, addr, sizeof *addr);
 		connected_ = status >= 0;
-		return status >= 0 ? conn::OK : conn::UNKNOWN;
+		return status >= 0 ? conn::ok : conn::unknown;
 	});
+}
+
+void Conn::disconnect() {
+	if (connected_) {
+		connected_ = false;
+		::close(sock_);
+	}
 }
 
 std::future<conn> Conn::send(const std::string &s) const {
@@ -86,7 +92,7 @@ std::future<conn> Conn::send(std::unique_ptr<std::vector<char>> v) const {
 	assert(connected_); // NOLINT
 	return std::async([&, v = std::move(v)]() {
 		const auto wc = ::send(sock_, v->data(), v->size(), 0);
-		return wc >= 0 ? conn::OK : conn::UNKNOWN;
+		return wc >= 0 ? conn::ok : conn::unknown;
 	});
 }
 

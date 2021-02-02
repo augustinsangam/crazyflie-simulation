@@ -13,9 +13,9 @@ extern "C" {
 }
 
 enum conn : int_fast8_t {
-	OK = 0,
-	UNCONNECTED = -1,
-	UNKNOWN = -127,
+	ok = 0,
+	unconnected = -1,
+	unknown = -127,
 };
 
 class Conn { // NOLINT
@@ -31,6 +31,8 @@ public:
 	~Conn();
 
 	std::future<conn> connect();
+
+	void disconnect();
 
 	std::future<conn> send(const std::string &s) const;
 

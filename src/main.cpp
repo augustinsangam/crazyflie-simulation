@@ -157,9 +157,14 @@ public:
 
 	static void commandsReceiver(CCrazyflieSensing *ccfls) {
 		for (;;) {
-			std::cout << "Receiving" << std::endl;
+			std::cout << "Listening..." << std::endl;
 			auto fut = ccfls->conn_.recv();
 			const auto msg = fut.get();
+			std::cout << "Message len: " << msg.second << std::endl;
+			if (msg.second <= 0) {
+				ccfls->conn_.disconnect();
+				break;
+			}
 			std::cout << "Received something" << std::endl;
 			ccfls->next_command_ = ccfls->decoder_.decode(msg.first);
 		}
