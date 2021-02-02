@@ -138,7 +138,7 @@ public:
 		if (argos::Abs(cPos.GetZ() - 2) < 0.01) {
 			return false;
 		}
-
+		rt_status_.enable();
 		cPos.SetZ(2);
 		m_pcPropellers->SetAbsolutePosition(cPos);
 		return true;
@@ -149,7 +149,7 @@ public:
 		if (argos::Abs(cPos.GetZ()) < 0.01) {
 			return false;
 		}
-
+		rt_status_.disable();
 		cPos.SetZ(0);
 		m_pcPropellers->SetAbsolutePosition(cPos);
 		return true;
