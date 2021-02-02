@@ -134,22 +134,22 @@ public:
 	void Destroy() override {}
 
 	bool TakeOff() {
+		rt_status_.enable();
 		argos::CVector3 cPos = m_pcPos->GetReading().Position;
 		if (argos::Abs(cPos.GetZ() - 2) < 0.01) {
 			return false;
 		}
-		rt_status_.enable();
 		cPos.SetZ(2);
 		m_pcPropellers->SetAbsolutePosition(cPos);
 		return true;
 	}
 
 	bool Land() {
+		rt_status_.disable();
 		argos::CVector3 cPos = m_pcPos->GetReading().Position;
 		if (argos::Abs(cPos.GetZ()) < 0.01) {
 			return false;
 		}
-		rt_status_.disable();
 		cPos.SetZ(0);
 		m_pcPropellers->SetAbsolutePosition(cPos);
 		return true;
