@@ -57,7 +57,7 @@ void RTStatus::update(std::float_t battery, const Vec4 &pos) {
 	/* 10 is the tickrate in <framework> in config.xml */
 	speed_ = Vec3::norm(Vec3::sub(pos, pos_)) / 10;
 	pos_ = pos;
-};
+}
 
 void RTStatus::enable() { flying_ = true; }
 
