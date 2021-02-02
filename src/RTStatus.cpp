@@ -6,8 +6,9 @@
 
 #include <iostream>
 
-static const std::array<const rapidjson::GenericPointer<rapidjson::Value>, 6>
+static const std::array<const rapidjson::GenericPointer<rapidjson::Value>, 7>
     p = {rapidjson::Pointer("/data/timestamp"),
+         rapidjson::Pointer("/data/flying"),
          rapidjson::Pointer("/data/battery"),
          rapidjson::Pointer("/data/speed"),
          rapidjson::Pointer("/data/position/0"),
@@ -26,7 +27,6 @@ RTStatus::RTStatus(std::string name)
 
 	rapidjson::Value data_(rapidjson::kObjectType);
 	data_.AddMember("name", name_, allocator);
-	data_.AddMember("is_on", flying_, allocator);
 
 	d_.AddMember("data", data_, allocator);
 }
@@ -37,11 +37,12 @@ std::string RTStatus::encode() {
 
 	auto &allocator = d_.GetAllocator();
 	p[0].Set(d_, std::time(nullptr), allocator);
-	p[1].Set(d_, battery_, allocator);
-	p[2].Set(d_, speed_, allocator);
-	p[3].Set(d_, pos_.x(), allocator);
-	p[4].Set(d_, pos_.y(), allocator);
-	p[5].Set(d_, pos_.z(), allocator);
+	p[1].Set(d_, flying_, allocator);
+	p[2].Set(d_, battery_, allocator);
+	p[3].Set(d_, speed_, allocator);
+	p[4].Set(d_, pos_.x(), allocator);
+	p[5].Set(d_, pos_.y(), allocator);
+	p[6].Set(d_, pos_.z(), allocator);
 
 	d_.Accept(w_);
 

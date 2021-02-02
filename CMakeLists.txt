@@ -9,26 +9,28 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_library(common INTERFACE)
 if(NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "Debug")
-    target_compile_options(common INTERFACE "-Wall" "-Wextra" "-Wpedantic")
-    target_compile_options(common INTERFACE
-        "-Wcast-qual"
-        "-Wconversion"
-        "-Wformat=2"
-        "-Wmissing-declarations"
-        "-Wshadow"
-        "-Wstrict-overflow")
+	target_compile_options(common INTERFACE "-Wall" "-Wextra" "-Wpedantic")
+	target_compile_options(common INTERFACE
+		"-Wcast-qual"
+		"-Wconversion"
+		"-Wformat=2"
+		"-Wmissing-declarations"
+		"-Wshadow"
+		"-Wstrict-overflow")
+	target_compile_options(common INTERFACE
+		"-Wno-missing-field-initializers")
 endif()
 check_cxx_compiler_flag("-fpic" IS_MINIMAL_FPIC_SUPPORTED)
 if(IS_MINIMAL_FPIC_SUPPORTED)
-    set(FPIC "-fpic")
+	set(FPIC "-fpic")
 else()
-    set(FPIC "-fPIC")
+	set(FPIC "-fPIC")
 endif()
 check_cxx_compiler_flag("-fpie" IS_MINIMAL_FPIE_SUPPORTED)
 if (IS_MINIMAL_FPIE_SUPPORTED)
-    set(FPIE "-fpie")
+	set(FPIE "-fpie")
 else()
-    set(FPIE "-fPIE")
+	set(FPIE "-fPIE")
 endif()
 
 add_library(controller SHARED)
