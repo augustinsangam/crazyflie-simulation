@@ -2,8 +2,6 @@
 #include <cmath>
 #include <string>
 
-#include <memory>
-
 #include <rapidjson/document.h>
 #include <rapidjson/pointer.h>
 #include <rapidjson/stringbuffer.h>
