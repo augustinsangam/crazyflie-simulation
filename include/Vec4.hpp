@@ -22,8 +22,8 @@ public:
 
 	~Vec4() = default;
 
-	constexpr explicit Vec4(std::array<std::float_t, 4> v)
-	    : v_{v[0], v[1], v[2], v[3]} {}
+	// constexpr explicit Vec4(std::array<std::float_t, 4> v)
+	//     : v_{v[0], v[1], v[2], v[3]} {}
 
 	constexpr explicit Vec4(std::float_t r) : Vec4(r, r, r, r) {}
 

@@ -13,5 +13,17 @@
       80
     ]
   },
-  "explorer.confirmDelete": false
+  "explorer.confirmDelete": false,
+  "filewatcher.commands": [
+    {
+      "match": "src",
+      "isAsync": true,
+      "cmd": "cd ${workspaceRoot} && ./launch.sh",
+      "event": "onFileChange"
+    }
+  ],
+  "files.associations": {
+    "iostream": "cpp",
+    "ostream": "cpp"
+  }
 }
