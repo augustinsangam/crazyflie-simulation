@@ -40,7 +40,7 @@ MESSAGE_TYPE Decoder::decode(const std::string &msg) {
 		break;
 	}
 	return type;
-};
+}
 
 MESSAGE_TYPE Decoder::decodeType(const std::string &msg) {
 	for (size_t i = 0; i < types.size(); i++) {
