@@ -13,6 +13,5 @@ cmake -DCMAKE_BUILD_TYPE=Debug ..
 make
 
 # Launch
-cd ..
-argos3 -c config.xml
+argos3 -c ../config.xml
 ```

@@ -27,12 +27,11 @@ RUN argos3 --version
 
 RUN apt-get install rapidjson-dev uuid-dev
 
-WORKDIR /drone
-ADD . .
-RUN ls -la
+ADD . /drone
 
 WORKDIR /build
 RUN cmake \
 	-G Ninja \
 	../drone
 RUN ninja
+RUN argos3 -c ../drone/config.xml

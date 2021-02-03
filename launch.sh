@@ -1,6 +1,7 @@
+#!/bin/sh -e
+
 mkdir -p build
 cd build
-cmake -DCMAKE_BUILD_TYPE=Debug ..
+cmake -D CMAKE_BUILD_TYPE=Debug ..
 make
-cd ..
-argos3 -c config.xml
+argos3 -c ../config.xml

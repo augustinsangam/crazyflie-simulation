@@ -21,7 +21,7 @@
   <!-- *************** -->
   <controllers>
 
-    <crazyflie_sensing_controller id="ssc" library="build/libcontroller">
+    <crazyflie_sensing_controller id="ssc" library="libcontroller">
       <actuators>
         <quadrotor_position implementation="default" />
       </actuators>
