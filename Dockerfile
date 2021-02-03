@@ -6,9 +6,11 @@ RUN apt-get update
 
 RUN apt-get install -y \
     cmake \
+	freeglut3-dev \
 	g++ \
     git \
-	ninja-build
+	ninja-build \
+	qt5-default
 
 RUN git clone --single-branch --branch inf3995 https://github.com/MISTLab/argos3.git
 
@@ -34,4 +36,5 @@ RUN cmake \
 	-G Ninja \
 	../drone
 RUN ninja
-RUN argos3 -c ../drone/config.xml
+
+CMD argos3 -c ../drone/config.xml
