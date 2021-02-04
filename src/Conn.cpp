@@ -1,9 +1,12 @@
 #include "Conn.hpp"
 
 #include <cassert>
+#include <chrono>
+#include <cstring>
 #include <functional>
 #include <memory>
 #include <stdexcept>
+#include <utility>
 
 extern "C" {
 /* ::htons */
@@ -26,12 +29,58 @@ extern "C" {
 #include <unistd.h>
 }
 
-Conn::Conn(const std::string &host, uint16_t port)
+#include <iostream>
+
+namespace conn {
+
+void Conn::sender_thread(Conn *conn) {
+	std::cout << "sender_thread: created" << std::endl;
+	conn->sender_wait();
+	std::cout << "sender_thread: connected" << std::endl;
+
+	for (;;) {
+		conn->sender_wait();
+		const auto wc = ::send(conn->sock_, conn->next_msg_.first,
+		                       conn->next_msg_.second, 0);
+		delete[] conn->next_msg_.first; // NOLINT
+		conn->next_msg_.first = nullptr;
+		if (wc < 0) {
+			std::cerr << "sender_thread: send failed with " << wc << std::endl;
+			break;
+		}
+	}
+}
+
+void Conn::receiver_thread(Conn *conn) {
+	std::cout << "receiver_thread: created" << std::endl;
+	conn->receiver_wait();
+	std::cout << "receiver_thread: connected" << std::endl;
+
+	for (;;) {
+		auto *buf = new char[buf_len]; // NOLINT
+		const auto rc = ::recv(conn->sock_, buf, buf_len, 0);
+		if (rc < 0) {
+			std::cerr << "receiver_thread: recv failed with " << rc
+			          << std::endl;
+			delete[] buf; // NOLINT
+			break;
+		}
+
+		conn->c_->call(std::make_pair(buf, static_cast<std::size_t>(rc)));
+	}
+
+	std::cout << "receiver_thread: done" << std::endl;
+}
+
+Conn::Conn(const std::string &host, uint16_t port, Callable *c)
     : sock_{::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)},
-      addr_{.sin_family = AF_INET, .sin_port = ::htons(port)} {
+      addr_{.sin_family = AF_INET, .sin_port = ::htons(port)}, c_{c},
+      sender_flag_{}, receiver_flag_{}, sender_thread_(sender_thread, this),
+      receiver_thread_(receiver_thread, this), next_msg_(nullptr, 0) {
 	struct addrinfo *it, *res,
 	    hints{.ai_family = AF_INET, .ai_socktype = SOCK_STREAM};
 
+	std::cout << "sock: " << sock_ << std::endl;
 	if (sock_ < 0) {
 		throw std::runtime_error("socket() failed");
 	}
@@ -61,13 +110,17 @@ Conn::Conn(const std::string &host, uint16_t port)
 
 Conn::~Conn() { disconnect(); }
 
-std::future<conn> Conn::connect() {
-	return std::async(std::launch::async, [&]() {
-		const auto *addr = reinterpret_cast<const sockaddr *>(&addr_);
-		const auto status = ::connect(sock_, addr, sizeof *addr);
-		connected_ = status >= 0;
-		return status >= 0 ? conn::ok : conn::unknown;
-	});
+state Conn::connect() {
+	const auto *addr = reinterpret_cast<const sockaddr *>(&addr_);
+	const auto status = ::connect(sock_, addr, sizeof *addr);
+	connected_ = status >= 0;
+	if (connected_) {
+		sender_notify();
+		receiver_notify();
+		// FIXME:
+		std::this_thread::sleep_for(std::chrono::seconds(1));
+	}
+	return status >= 0 ? conn::ok : conn::unknown;
 }
 
 void Conn::disconnect() {
@@ -77,30 +130,42 @@ void Conn::disconnect() {
 	}
 }
 
-std::future<conn> Conn::send(const std::string &s) const {
-	auto v = std::make_unique<std::vector<char>>(s.begin(), s.end());
-	return send(std::move(v));
+void Conn::send(msg_t msg) {
+	if (next_msg_.first != nullptr) {
+		std::cerr << "sending skipped" << std::endl;
+		return;
+	}
+
+	next_msg_.first = new char[msg.second]; // NOLINT
+	next_msg_.second = msg.second;
+	std::memcpy(next_msg_.first, msg.first, msg.second);
+	sender_notify();
 }
 
-std::future<conn> Conn::send(const std::pair<const char *, size_t> &buf) const {
-	auto v =
-	    std::make_unique<std::vector<char>>(buf.first, buf.first + buf.second);
-	return send(std::move(v));
+void Conn::sender_wait() {
+	std::unique_lock<std::mutex> lock(sender_mutex_);
+	sender_cond_.wait_for(lock, std::chrono::hours(512),
+	                      [&]() { return sender_flag_; });
+	sender_flag_ = false;
 }
 
-std::future<conn> Conn::send(std::unique_ptr<std::vector<char>> v) const {
-	assert(connected_); // NOLINT
-	return std::async([&, v = std::move(v)]() {
-		const auto wc = ::send(sock_, v->data(), v->size(), 0);
-		return wc >= 0 ? conn::ok : conn::unknown;
-	});
+void Conn::receiver_wait() {
+	std::unique_lock<std::mutex> lock(receiver_mutex_);
+	receiver_cond_.wait_for(lock, std::chrono::hours(512),
+	                        [&]() { return receiver_flag_; });
+	receiver_flag_ = false;
 }
 
-std::future<std::pair<char *, ssize_t>> Conn::recv() const {
-	assert(connected_); // NOLINT
-	return std::async([&]() {
-		auto *buf = new char[buf_len]; // NOLINT
-		const auto rc = ::recv(sock_, buf, buf_len, 0);
-		return std::make_pair(buf, rc);
-	});
+void Conn::sender_notify() {
+	std::lock_guard<std::mutex> lock(sender_mutex_);
+	sender_flag_ = true;
+	sender_cond_.notify_one();
 }
+
+void Conn::receiver_notify() {
+	std::lock_guard<std::mutex> lock(receiver_mutex_);
+	receiver_flag_ = true;
+	receiver_cond_.notify_one();
+}
+
+} // namespace conn

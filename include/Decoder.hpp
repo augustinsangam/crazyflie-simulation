@@ -1,3 +1,4 @@
+#include "Conn.hpp"
 #include <string>
 #include <vector>
 
@@ -18,5 +19,5 @@ private:
 public:
 	Decoder();
 
-	MESSAGE_TYPE decode(const std::string &msg);
+	MESSAGE_TYPE decode(conn::msg_t msg);
 };

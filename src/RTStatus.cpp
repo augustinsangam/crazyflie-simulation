@@ -1,4 +1,5 @@
 #include "RTStatus.hpp"
+#include "Conn.hpp"
 #include "Vec3.hpp"
 #include <array>
 #include <ctime>
@@ -29,7 +30,7 @@ RTStatus::RTStatus(std::string name)
 	d_.AddMember("data", data_, allocator);
 }
 
-std::string RTStatus::encode() {
+conn::msg_t RTStatus::encode() {
 	sb_.Clear();
 	w_.Reset(sb_);
 
@@ -44,7 +45,7 @@ std::string RTStatus::encode() {
 
 	d_.Accept(w_);
 
-	return sb_.GetString();
+	return std::make_pair(sb_.GetString(), sb_.GetSize());
 }
 
 void RTStatus::update(std::float_t battery, const Vec4 &pos) {

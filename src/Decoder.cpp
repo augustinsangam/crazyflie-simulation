@@ -1,4 +1,5 @@
 #include "Decoder.hpp"
+#include "Conn.hpp"
 #include <iostream>
 #include <rapidjson/document.h>
 
@@ -13,10 +14,10 @@ Decoder::Decoder() {
 	types.emplace_back("none");
 }
 
-MESSAGE_TYPE Decoder::decode(const std::string &msg) {
+MESSAGE_TYPE Decoder::decode(conn::msg_t msg) {
 	rj::Document document;
-	std::cout << "Decoding " << msg << std::endl;
-	document.Parse<0>(msg.c_str());
+	std::cout << "Decoding..." << std::endl;
+	document.Parse<0>(msg.first, msg.second);
 
 	std::string msgType = document["type"].GetString();
 	std::cout << msgType << std::endl;
