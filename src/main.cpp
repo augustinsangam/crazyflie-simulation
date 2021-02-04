@@ -33,7 +33,7 @@ private:
 	conn::Conn conn_;
 	RTStatus rt_status_;
 	Decoder decoder_;
-	MESSAGE_TYPE next_command_;
+	cmd_t next_command_;
 
 	/* Pointer to the position actuator */
 	argos::CCI_QuadRotorPositionActuator *m_pcPropellers{};
@@ -48,7 +48,7 @@ public:
 	/* Class constructor. */
 	CCrazyflieSensing()
 	    : conn_("localhost", 3995, this), rt_status_(uuid_gen()), decoder_(),
-	      next_command_(MESSAGE_TYPE::NONE) {
+	      next_command_(cmd_t::none) {
 		std::cout << "drone " << rt_status_.get_name() << " created"
 		          << std::endl;
 	}
@@ -57,7 +57,6 @@ public:
 	~CCrazyflieSensing() override = default;
 
 	void call(conn::mut_msg_t msg) override {
-		std::cout << "msg.second: " << msg.second << std::endl;
 		next_command_ = decoder_.decode(msg);
 		delete[] msg.first; // NOLINT
 	}
@@ -108,16 +107,16 @@ public:
 			conn_.send(rt_status_.encode());
 		}
 		switch (next_command_) {
-		case MESSAGE_TYPE::TAKEOFF:
+		case cmd_t::take_off:
 			TakeOff();
 			break;
-		case MESSAGE_TYPE::LAND:
+		case cmd_t::land:
 			Land();
 			break;
 		default:
 			break;
 		}
-		next_command_ = MESSAGE_TYPE::NONE;
+		next_command_ = cmd_t::none;
 		++tick_count_;
 	}
 

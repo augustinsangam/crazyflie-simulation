@@ -1,23 +1,9 @@
 #include "Conn.hpp"
-#include <string>
-#include <vector>
+#include <cstdint>
 
-enum class MESSAGE_TYPE {
-	UNKNOWN = 0,
-	TAKEOFF = 1,
-	LAND = 2,
-	ROBOT_UPDATE = 3,
-	NONE = 4
-};
+enum cmd_t : int_fast8_t { unknown = -1, none, pulse, take_off, land };
 
 class Decoder {
-private:
-	std::vector<std::string> types;
-
-	MESSAGE_TYPE decodeType(const std::string &msg);
-
 public:
-	Decoder();
-
-	MESSAGE_TYPE decode(conn::msg_t msg);
+	static cmd_t decode(conn::msg_t msg);
 };

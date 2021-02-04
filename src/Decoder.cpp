@@ -1,53 +1,33 @@
 #include "Decoder.hpp"
 #include "Conn.hpp"
+#include <array>
 #include <iostream>
+#include <string>
+#include <unordered_map>
+
 #include <rapidjson/document.h>
 
-namespace rj = rapidjson;
+static constexpr std::array<const char *, 4> types{"", "robot_update",
+                                                   "take_off", "land"};
 
-Decoder::Decoder() {
-	/* must be the same order as enum in Decoder.hpp */
-	types.emplace_back("UNKNOWN");
-	types.emplace_back("take_off");
-	types.emplace_back("land");
-	types.emplace_back("robot_update");
-	types.emplace_back("none");
-}
+static std::unordered_map<std::string, cmd_t> map_; // NOLINT
 
-MESSAGE_TYPE Decoder::decode(conn::msg_t msg) {
-	rj::Document document;
-	std::cout << "Decoding..." << std::endl;
-	document.Parse<0>(msg.first, msg.second);
-
-	std::string msgType = document["type"].GetString();
-	std::cout << msgType << std::endl;
-	MESSAGE_TYPE type = decodeType(msgType);
-
-	switch (type) {
-	case MESSAGE_TYPE::TAKEOFF:
-		std::cout << "TakeOff()" << std::endl;
-		break;
-	case MESSAGE_TYPE::LAND:
-		std::cout << "Land()" << std::endl;
-		break;
-	case MESSAGE_TYPE::ROBOT_UPDATE:
-		std::cout << "robot_update received" << std::endl;
-		break;
-	case MESSAGE_TYPE::UNKNOWN:
-		std::cout << "Unknown message received" << std::endl;
-		break;
-	case MESSAGE_TYPE::NONE:
-		std::cout << "None received" << std::endl;
-		break;
-	}
-	return type;
-}
-
-MESSAGE_TYPE Decoder::decodeType(const std::string &msg) {
-	for (size_t i = 0; i < types.size(); i++) {
-		if (types[i] == msg) {
-			return static_cast<MESSAGE_TYPE>(i);
+static const std::unordered_map<std::string, cmd_t> &map() {
+	if (map_.empty()) {
+		const auto len = types.size();
+		for (size_t i = 0; i < len; ++i) {
+			map_[std::string(types[i])] = static_cast<cmd_t>(i); // NOLINT
 		}
 	}
-	return MESSAGE_TYPE::UNKNOWN;
+	return map_;
+}
+
+cmd_t Decoder::decode(conn::msg_t msg) {
+	rapidjson::Document document;
+	document.Parse<0>(msg.first, msg.second);
+
+	const std::string msg_type = document["type"].GetString();
+
+	const auto it = map().find(msg_type);
+	return it != map().end() ? it->second : cmd_t::unknown;
 }
