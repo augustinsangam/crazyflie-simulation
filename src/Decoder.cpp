@@ -15,30 +15,30 @@ Decoder::Decoder() {
 
 MESSAGE_TYPE Decoder::decode(const std::string &msg) {
 	rj::Document document;
-	std::cout << "Decoding " << msg << std::endl;
+	// std::cout << "Decoding " << msg << std::endl;
 	document.Parse<0>(msg.c_str());
 
 	std::string msgType = document["type"].GetString();
-	std::cout << msgType << std::endl;
+	// std::cout << msgType << std::endl;
 	MESSAGE_TYPE type = decodeType(msgType);
 
-	switch (type) {
-	case MESSAGE_TYPE::TAKEOFF:
-		std::cout << "TakeOff()" << std::endl;
-		break;
-	case MESSAGE_TYPE::LAND:
-		std::cout << "Land()" << std::endl;
-		break;
-	case MESSAGE_TYPE::ROBOT_UPDATE:
-		std::cout << "robot_update received" << std::endl;
-		break;
-	case MESSAGE_TYPE::UNKNOWN:
-		std::cout << "Unknown message received" << std::endl;
-		break;
-	case MESSAGE_TYPE::NONE:
-		std::cout << "None received" << std::endl;
-		break;
-	}
+	// switch (type) {
+	// case MESSAGE_TYPE::TAKEOFF:
+	// 	std::cout << "TakeOff()" << std::endl;
+	// 	break;
+	// case MESSAGE_TYPE::LAND:
+	// 	std::cout << "Land()" << std::endl;
+	// 	break;
+	// case MESSAGE_TYPE::ROBOT_UPDATE:
+	// 	std::cout << "robot_update received" << std::endl;
+	// 	break;
+	// case MESSAGE_TYPE::UNKNOWN:
+	// 	std::cout << "Unknown message received" << std::endl;
+	// 	break;
+	// case MESSAGE_TYPE::NONE:
+	// 	std::cout << "None received" << std::endl;
+	// 	break;
+	// }
 	return type;
 }
 

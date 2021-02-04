@@ -2,6 +2,7 @@
 #include "Vec3.hpp"
 #include <array>
 #include <ctime>
+#include <string>
 #include <utility>
 
 #include <iostream>
@@ -67,4 +68,12 @@ void RTStatus::print() const {
 	          << "battery_level: " << battery_ << std::endl
 	          << "pos: " << pos_.x() << " " << pos_.y() << " " << pos_.z()
 	          << std::endl;
+}
+
+std::string RTStatus::getName() {
+	std::string shortName;
+	for (size_t i = 0; i < 5; i++) {
+		shortName += name_[i];
+	}
+	return shortName;
 }

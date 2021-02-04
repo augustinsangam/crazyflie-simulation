@@ -24,7 +24,7 @@ private:
 	// 8 ticks per second
 	static constexpr const uint8_t tick_rate_{8};
 	// 2 pulses per second
-	static constexpr const uint8_t pulse_rate_{2};
+	static constexpr const uint8_t pulse_rate_{1};
 	// 1 pule each n ticks
 	static constexpr const uint_fast8_t tick_pulse_{tick_rate_ / pulse_rate_};
 
@@ -163,8 +163,9 @@ public:
 	static void commandsReceiver(CCrazyflieSensing *ccfls) {
 		bool ok;
 		do {
+			std::cout << ccfls->rt_status_.getName() << " is listening..."
+			          << std::endl;
 			auto fut = ccfls->conn_.recv();
-			std::cout << "Listening..." << std::endl;
 
 			const auto msg = fut.get();
 			std::cout << "Message len: " << msg.second << std::endl;
@@ -172,7 +173,7 @@ public:
 
 			if (ok) {
 				std::string msgstr(msg.first, msg.first + msg.second);
-				std::cout << msgstr << std::endl;
+				// std::cout << msgstr << std::endl;
 				ccfls->next_command_ = ccfls->decoder_.decode(msgstr);
 			}
 			delete[] msg.first; // NOLINT

@@ -24,6 +24,8 @@ public:
 
 	std::string encode();
 
+	std::string getName();
+
 	void update(std::float_t battery, const Vec4 &pos);
 
 	void enable();
