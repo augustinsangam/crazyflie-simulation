@@ -1,5 +1,6 @@
 #include "RTStatus.hpp"
 #include "Conn.hpp"
+#include "Decoder.hpp"
 #include "Vec3.hpp"
 #include <array>
 #include <ctime>
@@ -22,7 +23,7 @@ RTStatus::RTStatus(std::string name)
 
 	auto &allocator = d_.GetAllocator();
 
-	d_.AddMember("type", "robot_update", allocator);
+	d_.AddMember("type", Decoder::cmd_to_str(cmd_t::pulse), allocator);
 
 	rapidjson::Value data_(rapidjson::kObjectType);
 	data_.AddMember("name", name_, allocator);

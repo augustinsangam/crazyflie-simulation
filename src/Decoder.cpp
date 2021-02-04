@@ -7,8 +7,8 @@
 
 #include <rapidjson/document.h>
 
-static constexpr std::array<const char *, 4> types{"", "robot_update",
-                                                   "take_off", "land"};
+static constexpr std::array<const char *, 4> types{"", "pulse", "take_off",
+                                                   "land"};
 
 static std::unordered_map<std::string, cmd_t> map_; // NOLINT
 
@@ -20,6 +20,14 @@ static const std::unordered_map<std::string, cmd_t> &map() {
 		}
 	}
 	return map_;
+}
+
+std::string Decoder::cmd_to_str(cmd_t cmd) {
+	if (cmd == cmd_t::unknown) {
+		return "unknown";
+	}
+
+	return types[static_cast<size_t>(cmd)]; // NOLINT
 }
 
 cmd_t Decoder::decode(conn::msg_t msg) {
