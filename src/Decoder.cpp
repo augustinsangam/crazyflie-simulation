@@ -7,27 +7,17 @@
 
 #include <rapidjson/document.h>
 
-static constexpr std::array<const char *, 4> types{"", "pulse", "take_off",
-                                                   "land"};
-
 static std::unordered_map<std::string, cmd_t> map_; // NOLINT
 
 static const std::unordered_map<std::string, cmd_t> &map() {
 	if (map_.empty()) {
-		const auto len = types.size();
+		const auto len = Decoder::types.size();
 		for (size_t i = 0; i < len; ++i) {
-			map_[std::string(types[i])] = static_cast<cmd_t>(i); // NOLINT
+			map_[std::string(Decoder::types[i])] = // NOLINT
+			    static_cast<cmd_t>(i);
 		}
 	}
 	return map_;
-}
-
-std::string Decoder::cmd_to_str(cmd_t cmd) {
-	if (cmd == cmd_t::unknown) {
-		return "unknown";
-	}
-
-	return types[static_cast<size_t>(cmd)]; // NOLINT
 }
 
 cmd_t Decoder::decode(conn::msg_t msg) {

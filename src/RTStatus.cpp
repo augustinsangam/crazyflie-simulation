@@ -23,7 +23,8 @@ RTStatus::RTStatus(std::string name)
 
 	auto &allocator = d_.GetAllocator();
 
-	d_.AddMember("type", Decoder::cmd_to_str(cmd_t::pulse), allocator);
+	const std::string type = Decoder::cmd_to_cstr(cmd_t::pulse);
+	d_.AddMember("type", type, allocator);
 
 	rapidjson::Value data_(rapidjson::kObjectType);
 	data_.AddMember("name", name_, allocator);
