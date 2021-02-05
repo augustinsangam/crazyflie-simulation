@@ -3,22 +3,14 @@
 #include <array>
 #include <iostream>
 #include <string>
-#include <unordered_map>
 
 #include <rapidjson/document.h>
 
-static std::unordered_map<std::string, cmd_t> map_; // NOLINT
-
-static const std::unordered_map<std::string, cmd_t> &map() {
-	if (map_.empty()) {
-		const auto len = Decoder::types.size();
-		for (size_t i = 0; i < len; ++i) {
-			map_[std::string(Decoder::types[i])] = // NOLINT
-			    static_cast<cmd_t>(i);
-		}
-	}
-	return map_;
-}
+Decoder::Decoder()
+    : map_{{"", cmd_t::none},
+           {"pulse", cmd_t::pulse},
+           {"take_off", cmd_t::take_off},
+           {"land", cmd_t::land}} {}
 
 cmd_t Decoder::decode(conn::msg_t msg) {
 	rapidjson::Document document;
@@ -26,6 +18,6 @@ cmd_t Decoder::decode(conn::msg_t msg) {
 
 	const std::string msg_type = document["type"].GetString();
 
-	const auto it = map().find(msg_type);
-	return it != map().end() ? it->second : cmd_t::unknown;
+	const auto it = map_.find(msg_type);
+	return it != map_.end() ? it->second : cmd_t::unknown;
 }
