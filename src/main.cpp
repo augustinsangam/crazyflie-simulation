@@ -18,8 +18,9 @@
 #include <random>
 #include <string>
 #include <thread>
+#include <utility>
 
-class CCrazyflieSensing : public argos::CCI_Controller {
+class CCrazyflieSensing : public argos::CCI_Controller, public conn::Callable {
 private:
 	// 8 ticks per second
 	static constexpr const uint8_t tick_rate_{8};
@@ -29,10 +30,10 @@ private:
 	static constexpr const uint_fast8_t tick_pulse_{tick_rate_ / pulse_rate_};
 
 	uint32_t tick_count_{};
-	Conn conn_;
+	conn::Conn conn_;
 	RTStatus rt_status_;
 	Decoder decoder_;
-	MESSAGE_TYPE next_command_;
+	cmd_t next_command_;
 
 	/* Pointer to the position actuator */
 	argos::CCI_QuadRotorPositionActuator *m_pcPropellers{};
@@ -46,11 +47,19 @@ private:
 public:
 	/* Class constructor. */
 	CCrazyflieSensing()
-	    : conn_("localhost", 3995), rt_status_(uuid_gen()), decoder_(),
-	      next_command_(MESSAGE_TYPE::NONE) {}
+	    : conn_("localhost", 3995, this), rt_status_(uuid_gen()), decoder_(),
+	      next_command_(cmd_t::none) {
+		std::cout << "drone " << rt_status_.get_name() << " created"
+		          << std::endl;
+	}
 
 	/* Class destructor. */
 	~CCrazyflieSensing() override = default;
+
+	void call(conn::mut_msg_t msg) override {
+		next_command_ = decoder_.decode(msg);
+		delete[] msg.first; // NOLINT
+	}
 
 	/*
 	 * This function initializes the controller.
@@ -58,9 +67,8 @@ public:
 	 * file in the <controllers><footbot_diffusion_controller> section.
 	 */
 	void Init(argos::TConfigurationNode & /*t_node*/) override {
-		auto f1 = conn_.connect();
-		const auto v1 = f1.get();
-		std::cout << v1 << std::endl;
+		const auto v1 = conn_.connect();
+		std::cout << "connexion status: " << static_cast<int>(v1) << std::endl;
 
 		m_pcPropellers = GetActuator<argos::CCI_QuadRotorPositionActuator>(
 		    "quadrotor_position");
@@ -94,21 +102,21 @@ public:
 		                       static_cast<std::float_t>(cPos.GetZ())));
 
 		if (tick_count_ % tick_pulse_ == 0) {
-			std::string json = rt_status_.encode();
+			// std::string json = rt_status_.encode();
 			// std::cout << json << std::endl;
-			conn_.send(json);
+			conn_.send(rt_status_.encode());
 		}
 		switch (next_command_) {
-		case MESSAGE_TYPE::TAKEOFF:
+		case cmd_t::take_off:
 			TakeOff();
 			break;
-		case MESSAGE_TYPE::LAND:
+		case cmd_t::land:
 			Land();
 			break;
 		default:
 			break;
 		}
-		next_command_ = MESSAGE_TYPE::NONE;
+		next_command_ = cmd_t::none;
 		++tick_count_;
 	}
 
@@ -161,24 +169,23 @@ public:
 	}
 
 	static void commandsReceiver(CCrazyflieSensing *ccfls) {
-		bool ok;
+		/*bool ok;
 		do {
-			std::cout << ccfls->rt_status_.getName() << " is listening..."
-			          << std::endl;
-			auto fut = ccfls->conn_.recv();
+		    auto fut = ccfls->conn_.recv();
+		    std::cout << "Listening..." << std::endl;
 
-			const auto msg = fut.get();
-			std::cout << "Message len: " << msg.second << std::endl;
-			ok = msg.second > 0;
+		    const auto msg = fut.get();
+		    std::cout << "Message len: " << msg.second << std::endl;
+		    ok = msg.second > 0;
 
-			if (ok) {
-				std::string msgstr(msg.first, msg.first + msg.second);
-				// std::cout << msgstr << std::endl;
-				ccfls->next_command_ = ccfls->decoder_.decode(msgstr);
-			}
-			delete[] msg.first; // NOLINT
+		    if (ok) {
+		        std::string msgstr(msg.first, msg.first + msg.second);
+		        std::cout << msgstr << std::endl;
+		        ccfls->next_command_ = ccfls->decoder_.decode(msgstr);
+		    }
+		    delete[] msg.first; // NOLINT
 		} while (ok);
-		ccfls->conn_.disconnect();
+		ccfls->conn_.disconnect();*/
 	}
 };
 

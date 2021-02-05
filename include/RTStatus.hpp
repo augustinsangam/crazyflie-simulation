@@ -1,3 +1,4 @@
+#include "Conn.hpp"
 #include "Vec4.hpp"
 #include <cmath>
 #include <string>
@@ -22,7 +23,9 @@ private:
 public:
 	explicit RTStatus(std::string name);
 
-	std::string encode();
+	conn::msg_t encode();
+
+	const std::string &get_name() const { return name_; }
 
 	std::string getName();
 

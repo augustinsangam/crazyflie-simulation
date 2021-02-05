@@ -1,4 +1,6 @@
 #include "RTStatus.hpp"
+#include "Conn.hpp"
+#include "Decoder.hpp"
 #include "Vec3.hpp"
 #include <array>
 #include <ctime>
@@ -22,7 +24,8 @@ RTStatus::RTStatus(std::string name)
 
 	auto &allocator = d_.GetAllocator();
 
-	d_.AddMember("type", "robot_update", allocator);
+	const std::string type = Decoder::cmd_to_cstr(cmd_t::pulse);
+	d_.AddMember("type", type, allocator);
 
 	rapidjson::Value data_(rapidjson::kObjectType);
 	data_.AddMember("name", name_, allocator);
@@ -30,7 +33,7 @@ RTStatus::RTStatus(std::string name)
 	d_.AddMember("data", data_, allocator);
 }
 
-std::string RTStatus::encode() {
+conn::msg_t RTStatus::encode() {
 	sb_.Clear();
 	w_.Reset(sb_);
 
@@ -45,7 +48,7 @@ std::string RTStatus::encode() {
 
 	d_.Accept(w_);
 
-	return sb_.GetString();
+	return std::make_pair(sb_.GetString(), sb_.GetSize());
 }
 
 void RTStatus::update(std::float_t battery, const Vec4 &pos) {

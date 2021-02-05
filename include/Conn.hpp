@@ -1,10 +1,14 @@
 #ifndef CONN_HPP
 #define CONN_HPP
 
+#include <condition_variable>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <future>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 extern "C" {
@@ -12,7 +16,18 @@ extern "C" {
 #include <netinet/in.h>
 }
 
-enum conn : int_fast8_t {
+namespace conn {
+
+using msg_t = std::pair<const char *, std::size_t>;
+
+using mut_msg_t = std::pair<char *, std::size_t>;
+
+class Callable {
+public:
+	virtual void call(mut_msg_t) = 0;
+};
+
+enum state : int_fast8_t {
 	ok = 0,
 	unconnected = -1,
 	unknown = -127,
@@ -24,23 +39,36 @@ class Conn { // NOLINT
 	bool connected_{};
 	int sock_;
 	struct sockaddr_in addr_;
+	Callable *c_;
+
+	bool sender_flag_, receiver_flag_;
+	std::thread sender_thread_, receiver_thread_;
+	std::mutex sender_mutex_, receiver_mutex_;
+	std::condition_variable sender_cond_, receiver_cond_;
+
+	mut_msg_t next_msg_;
 
 public:
-	Conn(const std::string &host, uint16_t port);
+	Conn(const std::string &host, uint16_t port, Callable *c);
 
 	~Conn();
 
-	std::future<conn> connect();
+	state connect();
 
 	void disconnect();
 
-	std::future<conn> send(const std::string &s) const;
+	void send(msg_t msg);
 
-	std::future<conn> send(const std::pair<const char *, size_t> &buf) const;
+	void sender_wait();
+	void receiver_wait();
 
-	std::future<conn> send(std::unique_ptr<std::vector<char>> v) const;
+	void sender_notify();
+	void receiver_notify();
 
-	std::future<std::pair<char *, ssize_t>> recv() const;
+	static void sender_thread(Conn *conn);
+	static void receiver_thread(Conn *conn);
 };
+
+} // namespace conn
 
 #endif /* CONN_HPP */

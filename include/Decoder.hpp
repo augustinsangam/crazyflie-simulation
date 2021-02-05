@@ -1,22 +1,21 @@
+#include "Conn.hpp"
+#include <cstdint>
 #include <string>
-#include <vector>
 
-enum class MESSAGE_TYPE {
-	UNKNOWN = 0,
-	TAKEOFF = 1,
-	LAND = 2,
-	ROBOT_UPDATE = 3,
-	NONE = 4
-};
+enum cmd_t : int_fast8_t { unknown = -1, none, pulse, take_off, land };
 
 class Decoder {
-private:
-	std::vector<std::string> types;
-
-	MESSAGE_TYPE decodeType(const std::string &msg);
-
 public:
-	Decoder();
+	static constexpr std::array<const char *, 4> types{"", "pulse", "take_off",
+	                                                   "land"};
 
-	MESSAGE_TYPE decode(const std::string &msg);
+	static constexpr const char *cmd_to_cstr(cmd_t cmd) {
+		if (cmd == cmd_t::unknown) {
+			return "unknown";
+		}
+
+		return types[static_cast<size_t>(cmd)]; // NOLINT
+	}
+
+	static cmd_t decode(conn::msg_t msg);
 };
