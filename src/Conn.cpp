@@ -40,19 +40,14 @@ void Conn::input_thread(Conn *conn) {
 		                           [conn]() { return conn->connected_; });
 	}
 
-	bool input_chn_open;
+	bool loop;
 	do {
 		auto *mem = new char[conn->msg_len_];
 		const auto rc = ::recv(conn->sock_, mem, conn->msg_len_, 0);
 		auto msg = make_pair(std::unique_ptr<char[]>(mem), rc);
 
-		if (rc < 0) {
-			std::cerr << "input_thread: recv failed with " << rc << std::endl;
-			break;
-		}
-
-		input_chn_open = conn->input_chn_.send(std::move(msg));
-	} while (input_chn_open);
+		loop = rc >= 0 && conn->input_chn_.send(std::move(msg));
+	} while (loop);
 
 	std::cout << "input_thread: done" << std::endl;
 }
@@ -64,19 +59,14 @@ void Conn::output_thread(Conn *conn) {
 		                           [conn]() { return conn->connected_; });
 	}
 
-	for (;;) {
+	bool loop;
+	do {
 		const auto msg = conn->output_chn_.recv(true);
-		if (!msg) {
-			std::cerr << "output_thread: msg nul" << std::endl;
-			break;
-		}
 
-		const auto wc = ::send(conn->sock_, msg->data(), msg->size(), 0);
-		if (wc < 0) {
-			std::cerr << "output_thread: send failed with " << wc << std::endl;
-			break;
-		}
-	}
+		loop = msg && ::send(conn->sock_, msg->data(), msg->size(), 0) >= 0;
+	} while (loop);
+
+	std::cout << "output_thread: done" << std::endl;
 }
 
 Conn::Conn(const std::string &host, uint16_t port, std::size_t msg_len)
@@ -122,8 +112,7 @@ state Conn::connect() {
 	connected_ = status >= 0;
 	if (connected_) {
 		connexion_wait_.notify_all();
-		// FIXME:
-		std::this_thread::sleep_for(std::chrono::seconds(1));
+		std::this_thread::yield();
 	}
 	return connected_ ? conn::ok : conn::unknown;
 }
