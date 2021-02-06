@@ -9,9 +9,9 @@ Decoder::Decoder()
            {"take_off", cmd_t::take_off},
            {"land", cmd_t::land}} {}
 
-cmd_t Decoder::decode(conn::msg_t msg) {
+cmd_t Decoder::decode(std::pair<std::unique_ptr<char[]>, std::size_t> &&msg) {
 	rapidjson::Document document;
-	document.Parse<0>(msg.first, msg.second);
+	document.Parse<0>(msg.first.get(), msg.second);
 
 	const std::string msg_type = document["type"].GetString();
 

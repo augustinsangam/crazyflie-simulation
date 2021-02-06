@@ -23,5 +23,5 @@ public:
 
 	Decoder();
 
-	cmd_t decode(conn::msg_t msg);
+	cmd_t decode(std::pair<std::unique_ptr<char[]>, std::size_t> &&msg);
 };

@@ -1,19 +1,16 @@
 #ifndef CHN_HPP
 #define CHN_HPP
 
+#include <atomic>
 #include <condition_variable>
-#include <future>
 #include <mutex>
 #include <optional>
 #include <queue>
+#include <stdexcept>
 #include <thread>
 
 /* https://github.com/Balnian/ChannelsCPP/blob/master/ChannelsCPP/ChannelBuffer.h
  */
-
-class channel_closed : public std::runtime_error {
-	using std::runtime_error::runtime_error;
-};
 
 template <typename T> class Chn {
 private:
@@ -33,9 +30,9 @@ public:
 
 	bool is_open() { return is_open_ || !q_.empty(); }
 
-	Chn &operator<<(T val) {
+	bool send(T &&val) {
 		if (!is_open_) {
-			throw channel_closed("send attempt while closed");
+			return false;
 		}
 
 		{
@@ -44,30 +41,28 @@ public:
 			q_.push(std::move(val));
 		}
 		input_wait_.notify_one();
-		return *this;
+		return true;
 	}
 
-	Chn &operator>>(std::optional<T> &val) {
+	std::optional<T> recv(bool wait = false) {
 		std::unique_lock<std::mutex> u_lock(m_);
 		if (q_.empty()) {
-			if (!is_open_) {
-				val = std::nullopt;
-				return *this;
+			if (!wait || !is_open_) {
+				return std::nullopt;
 			}
 
 			input_wait_.wait(u_lock,
 			                 [&]() { return !q_.empty() || !is_open_; });
 
 			if (q_.empty() && !is_open_) {
-				val = std::nullopt;
-				return *this;
+				return std::nullopt;
 			}
 		}
 
-		val = std::move(q_.front());
+		auto val = std::move(q_.front());
 		q_.pop();
 		output_wait_.notify_one();
-		return *this;
+		return val;
 	}
 };
 
