@@ -4,51 +4,69 @@
 #include "Vec3.hpp"
 #include <array>
 #include <ctime>
-#include <string>
+#include <iostream>
 #include <utility>
 
-#include <iostream>
+#include <rapidjson/encodings.h>
+#include <rapidjson/writer.h>
 
-static const std::array<const rapidjson::GenericPointer<rapidjson::Value>, 7>
-    p = {rapidjson::Pointer("/data/timestamp"),
-         rapidjson::Pointer("/data/flying"),
-         rapidjson::Pointer("/data/battery"),
-         rapidjson::Pointer("/data/speed"),
-         rapidjson::Pointer("/data/position/0"),
-         rapidjson::Pointer("/data/position/1"),
-         rapidjson::Pointer("/data/position/2")};
+class StringHolder {
+private:
+	std::string *s_;
+
+public:
+	using Ch = rapidjson::UTF8<>::Ch;
+
+	explicit StringHolder(std::string *s) : s_(s) { s_->reserve(4096); }
+	std::size_t Size() const { return s_->length(); }
+	void Put(char c) { s_->push_back(c); }
+	void Clear() { s_->clear(); }
+	void Flush() {}
+};
 
 RTStatus::RTStatus(std::string name)
-    : flying_{false}, name_(std::move(name)), speed_{0}, battery_{0}, pos_(0),
-      d_(rapidjson::kObjectType), w_(sb_) {
+    : flying_{false}, name_(std::move(name)), speed_{0}, battery_{0}, pos_(0) {}
 
-	auto &allocator = d_.GetAllocator();
+std::string RTStatus::encode() {
+	std::string s;
+	StringHolder sh(&s);
+	rapidjson::Writer<StringHolder> w(sh);
 
-	const std::string type = Decoder::cmd_to_cstr(cmd_t::pulse);
-	d_.AddMember("type", type, allocator);
+	w.StartObject();
 
-	rapidjson::Value data_(rapidjson::kObjectType);
-	data_.AddMember("name", name_, allocator);
+	w.String("type");
+	w.String("pulse");
 
-	d_.AddMember("data", data_, allocator);
-}
+	w.String("data");
+	w.StartObject();
 
-conn::msg_t RTStatus::encode() {
-	sb_.Clear();
-	w_.Reset(sb_);
+	w.String("timestamp");
+	w.Int64(std::time(nullptr));
 
-	auto &allocator = d_.GetAllocator();
-	p[0].Set(d_, std::time(nullptr), allocator);
-	p[1].Set(d_, flying_, allocator);
-	p[2].Set(d_, battery_, allocator);
-	p[3].Set(d_, speed_, allocator);
-	p[4].Set(d_, pos_.x(), allocator);
-	p[5].Set(d_, pos_.y(), allocator);
-	p[6].Set(d_, pos_.z(), allocator);
+	w.String("name");
+	w.String(name_);
 
-	d_.Accept(w_);
+	w.String("flying");
+	w.Bool(flying_);
 
-	return std::make_pair(sb_.GetString(), sb_.GetSize());
+	w.String("battery");
+	w.Double(battery_);
+
+	w.String("speed");
+	w.Double(speed_);
+
+	w.String("position");
+	w.StartArray();
+	w.Double(pos_.x());
+	w.Double(pos_.y());
+	w.Double(pos_.z());
+	w.EndArray();
+
+	w.EndObject();
+
+	w.EndObject();
+
+	return s;
 }
 
 void RTStatus::update(std::float_t battery, const Vec4 &pos) {

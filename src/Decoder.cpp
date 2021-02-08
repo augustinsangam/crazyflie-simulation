@@ -1,31 +1,20 @@
 #include "Decoder.hpp"
 #include "Conn.hpp"
-#include <array>
-#include <iostream>
-#include <string>
-#include <unordered_map>
 
 #include <rapidjson/document.h>
 
-static std::unordered_map<std::string, cmd_t> map_; // NOLINT
+Decoder::Decoder()
+    : map_{{"", cmd_t::none},
+           {"pulse", cmd_t::pulse},
+           {"take_off", cmd_t::take_off},
+           {"land", cmd_t::land}} {}
 
-static const std::unordered_map<std::string, cmd_t> &map() {
-	if (map_.empty()) {
-		const auto len = Decoder::types.size();
-		for (size_t i = 0; i < len; ++i) {
-			map_[std::string(Decoder::types[i])] = // NOLINT
-			    static_cast<cmd_t>(i);
-		}
-	}
-	return map_;
-}
-
-cmd_t Decoder::decode(conn::msg_t msg) {
+cmd_t Decoder::decode(std::pair<std::unique_ptr<char[]>, std::size_t> &&msg) {
 	rapidjson::Document document;
-	document.Parse<0>(msg.first, msg.second);
+	document.Parse<0>(msg.first.get(), msg.second);
 
 	const std::string msg_type = document["type"].GetString();
 
-	const auto it = map().find(msg_type);
-	return it != map().end() ? it->second : cmd_t::unknown;
+	const auto it = map_.find(msg_type);
+	return it != map_.end() ? it->second : cmd_t::unknown;
 }

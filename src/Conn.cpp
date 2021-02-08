@@ -33,50 +33,46 @@ extern "C" {
 
 namespace conn {
 
-void Conn::sender_thread(Conn *conn) {
-	std::cout << "sender_thread: created" << std::endl;
-	conn->sender_wait();
-	std::cout << "sender_thread: connected" << std::endl;
-
-	for (;;) {
-		conn->sender_wait();
-		const auto wc = ::send(conn->sock_, conn->next_msg_.first,
-		                       conn->next_msg_.second, 0);
-		delete[] conn->next_msg_.first; // NOLINT
-		conn->next_msg_.first = nullptr;
-		if (wc < 0) {
-			std::cerr << "sender_thread: send failed with " << wc << std::endl;
-			break;
-		}
-	}
-}
-
-void Conn::receiver_thread(Conn *conn) {
-	std::cout << "receiver_thread: created" << std::endl;
-	conn->receiver_wait();
-	std::cout << "receiver_thread: connected" << std::endl;
-
-	for (;;) {
-		auto *buf = new char[buf_len]; // NOLINT
-		const auto rc = ::recv(conn->sock_, buf, buf_len, 0);
-		if (rc < 0) {
-			std::cerr << "receiver_thread: recv failed with " << rc
-			          << std::endl;
-			delete[] buf; // NOLINT
-			break;
-		}
-
-		conn->c_->call(std::make_pair(buf, static_cast<std::size_t>(rc)));
+void Conn::input_thread(Conn *conn) {
+	{
+		std::unique_lock<std::mutex> u_lock(conn->connexion_mtx_);
+		conn->connexion_wait_.wait(u_lock,
+		                           [conn]() { return conn->connected_; });
 	}
 
-	std::cout << "receiver_thread: done" << std::endl;
+	bool loop;
+	do {
+		auto *mem = new char[conn->msg_len_];
+		const auto rc = ::recv(conn->sock_, mem, conn->msg_len_, 0);
+		auto msg = make_pair(std::unique_ptr<char[]>(mem), rc);
+
+		loop = rc >= 0 && conn->input_chn_.send(std::move(msg));
+	} while (loop);
+
+	std::cout << "input_thread: done" << std::endl;
 }
 
-Conn::Conn(const std::string &host, uint16_t port, Callable *c)
-    : sock_{::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)},
-      addr_{.sin_family = AF_INET, .sin_port = ::htons(port)}, c_{c},
-      sender_flag_{}, receiver_flag_{}, sender_thread_(sender_thread, this),
-      receiver_thread_(receiver_thread, this), next_msg_(nullptr, 0) {
+void Conn::output_thread(Conn *conn) {
+	{
+		std::unique_lock<std::mutex> u_lock(conn->connexion_mtx_);
+		conn->connexion_wait_.wait(u_lock,
+		                           [conn]() { return conn->connected_; });
+	}
+
+	bool loop;
+	do {
+		const auto msg = conn->output_chn_.recv(true);
+
+		loop = msg && ::send(conn->sock_, msg->data(), msg->size(), 0) >= 0;
+	} while (loop);
+
+	std::cout << "output_thread: done" << std::endl;
+}
+
+Conn::Conn(const std::string &host, uint16_t port, std::size_t msg_len)
+    : msg_len_{msg_len}, sock_{::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)},
+      addr_{.sin_family = AF_INET, .sin_port = ::htons(port)},
+      input_thr_(input_thread, this), output_thr_(output_thread, this) {
 	struct addrinfo *it, *res,
 	    hints{.ai_family = AF_INET, .ai_socktype = SOCK_STREAM};
 
@@ -115,12 +111,10 @@ state Conn::connect() {
 	const auto status = ::connect(sock_, addr, sizeof *addr);
 	connected_ = status >= 0;
 	if (connected_) {
-		sender_notify();
-		receiver_notify();
-		// FIXME:
-		std::this_thread::sleep_for(std::chrono::seconds(1));
+		connexion_wait_.notify_all();
+		std::this_thread::yield();
 	}
-	return status >= 0 ? conn::ok : conn::unknown;
+	return connected_ ? conn::ok : conn::unknown;
 }
 
 void Conn::disconnect() {
@@ -130,42 +124,10 @@ void Conn::disconnect() {
 	}
 }
 
-void Conn::send(msg_t msg) {
-	if (next_msg_.first != nullptr) {
-		std::cerr << "sending skipped" << std::endl;
-		return;
-	}
+void Conn::send(std::string &&msg) { output_chn_.send(std::move(msg)); }
 
-	next_msg_.first = new char[msg.second]; // NOLINT
-	next_msg_.second = msg.second;
-	std::memcpy(next_msg_.first, msg.first, msg.second);
-	sender_notify();
-}
-
-void Conn::sender_wait() {
-	std::unique_lock<std::mutex> lock(sender_mutex_);
-	sender_cond_.wait_for(lock, std::chrono::hours(512),
-	                      [&]() { return sender_flag_; });
-	sender_flag_ = false;
-}
-
-void Conn::receiver_wait() {
-	std::unique_lock<std::mutex> lock(receiver_mutex_);
-	receiver_cond_.wait_for(lock, std::chrono::hours(512),
-	                        [&]() { return receiver_flag_; });
-	receiver_flag_ = false;
-}
-
-void Conn::sender_notify() {
-	std::lock_guard<std::mutex> lock(sender_mutex_);
-	sender_flag_ = true;
-	sender_cond_.notify_one();
-}
-
-void Conn::receiver_notify() {
-	std::lock_guard<std::mutex> lock(receiver_mutex_);
-	receiver_flag_ = true;
-	receiver_cond_.notify_one();
+std::optional<std::pair<std::unique_ptr<char[]>, std::size_t>> Conn::recv() {
+	return input_chn_.recv();
 }
 
 } // namespace conn

@@ -3,11 +3,6 @@
 #include <cmath>
 #include <string>
 
-#include <rapidjson/document.h>
-#include <rapidjson/pointer.h>
-#include <rapidjson/stringbuffer.h>
-#include <rapidjson/writer.h>
-
 class RTStatus {
 private:
 	bool flying_;
@@ -16,14 +11,10 @@ private:
 	std::float_t battery_;
 	Vec4 pos_;
 
-	rapidjson::Document d_;
-	rapidjson::StringBuffer sb_;
-	rapidjson::Writer<rapidjson::StringBuffer> w_;
-
 public:
 	explicit RTStatus(std::string name);
 
-	conn::msg_t encode();
+	std::string encode();
 
 	const std::string &get_name() const { return name_; }
 

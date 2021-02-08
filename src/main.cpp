@@ -20,7 +20,7 @@
 #include <thread>
 #include <utility>
 
-class CCrazyflieSensing : public argos::CCI_Controller, public conn::Callable {
+class CCrazyflieSensing : public argos::CCI_Controller {
 private:
 	// 8 ticks per second
 	static constexpr const uint8_t tick_rate_{8};
@@ -33,7 +33,6 @@ private:
 	conn::Conn conn_;
 	RTStatus rt_status_;
 	Decoder decoder_;
-	cmd_t next_command_;
 
 	/* Pointer to the position actuator */
 	argos::CCI_QuadRotorPositionActuator *m_pcPropellers{};
@@ -47,8 +46,7 @@ private:
 public:
 	/* Class constructor. */
 	CCrazyflieSensing()
-	    : conn_("localhost", 3995, this), rt_status_(uuid_gen()), decoder_(),
-	      next_command_(cmd_t::none) {
+	    : conn_("localhost", 3995), rt_status_(uuid_gen()), decoder_() {
 		std::cout << "drone " << rt_status_.get_name() << " created"
 		          << std::endl;
 	}
@@ -56,10 +54,10 @@ public:
 	/* Class destructor. */
 	~CCrazyflieSensing() override = default;
 
-	void call(conn::mut_msg_t msg) override {
-		next_command_ = decoder_.decode(msg);
-		delete[] msg.first; // NOLINT
-	}
+	/*void call(conn::mut_msg_t msg) override {
+	    next_command_ = decoder_.decode(msg);
+	    delete[] msg.first; // NOLINT
+	}*/
 
 	/*
 	 * This function initializes the controller.
@@ -78,9 +76,6 @@ public:
 		m_pcBattery = GetSensor<argos::CCI_BatterySensor>("battery");
 
 		std::cout << "Init OK" << std::endl;
-
-		std::thread commandReceiver(commandsReceiver, this);
-		commandReceiver.detach();
 	}
 
 	/*
@@ -102,21 +97,23 @@ public:
 		                       static_cast<std::float_t>(cPos.GetZ())));
 
 		if (tick_count_ % tick_pulse_ == 0) {
-			// std::string json = rt_status_.encode();
-			// std::cout << json << std::endl;
 			conn_.send(rt_status_.encode());
+		} else {
+			auto msg = conn_.recv();
+			if (msg) {
+				switch (decoder_.decode(std::move(*msg))) {
+				case cmd_t::take_off:
+					TakeOff();
+					break;
+				case cmd_t::land:
+					Land();
+					break;
+				default:
+					break;
+				}
+			}
 		}
-		switch (next_command_) {
-		case cmd_t::take_off:
-			TakeOff();
-			break;
-		case cmd_t::land:
-			Land();
-			break;
-		default:
-			break;
-		}
-		next_command_ = cmd_t::none;
+
 		++tick_count_;
 	}
 
@@ -166,26 +163,6 @@ public:
 		cPos.SetZ(0);
 		m_pcPropellers->SetAbsolutePosition(cPos);
 		return true;
-	}
-
-	static void commandsReceiver(CCrazyflieSensing *ccfls) {
-		/*bool ok;
-		do {
-		    auto fut = ccfls->conn_.recv();
-		    std::cout << "Listening..." << std::endl;
-
-		    const auto msg = fut.get();
-		    std::cout << "Message len: " << msg.second << std::endl;
-		    ok = msg.second > 0;
-
-		    if (ok) {
-		        std::string msgstr(msg.first, msg.first + msg.second);
-		        std::cout << msgstr << std::endl;
-		        ccfls->next_command_ = ccfls->decoder_.decode(msgstr);
-		    }
-		    delete[] msg.first; // NOLINT
-		} while (ok);
-		ccfls->conn_.disconnect();*/
 	}
 };
 
