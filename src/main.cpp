@@ -91,10 +91,11 @@ public:
 		argos::CVector3 cPos = m_pcPos->GetReading().Position;
 
 		// Update drone status
-		rt_status_.update(static_cast<std::float_t>(sBatRead.AvailableCharge),
-		                  Vec4(static_cast<std::float_t>(cPos.GetX()),
-		                       static_cast<std::float_t>(cPos.GetY()),
-		                       static_cast<std::float_t>(cPos.GetZ())));
+		rt_status_.setBattery(
+		    static_cast<std::float_t>(sBatRead.AvailableCharge));
+		rt_status_.setPosition(Vec4(static_cast<std::float_t>(cPos.GetX()),
+		                            static_cast<std::float_t>(cPos.GetY()),
+		                            static_cast<std::float_t>(cPos.GetZ())));
 
 		if (tick_count_ % tick_pulse_ == 0) {
 			conn_.send(rt_status_.encode());

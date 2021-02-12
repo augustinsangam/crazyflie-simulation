@@ -69,17 +69,6 @@ std::string RTStatus::encode() {
 	return s;
 }
 
-void RTStatus::update(std::float_t battery, const Vec4 &pos) {
-	if (!flying_) {
-		return;
-	}
-
-	battery_ = battery;
-	/* 10 is the tickrate in <framework> in config.xml */
-	speed_ = Vec3::norm(Vec3::sub(pos, pos_)) / 10;
-	pos_ = pos;
-}
-
 void RTStatus::enable() { flying_ = true; }
 
 void RTStatus::disable() { flying_ = false; }
@@ -97,4 +86,21 @@ std::string RTStatus::getName() {
 		shortName += name_[i];
 	}
 	return shortName;
+}
+
+void RTStatus::setSensorData(uint16_t left, uint16_t right, uint16_t front,
+                             uint16_t back, uint16_t up) {
+	sensors_.left = left;
+	sensors_.right = right;
+	sensors_.front = front;
+	sensors_.back = back;
+	sensors_.up = up;
+}
+
+void RTStatus::setCameraData(uint16_t delta_x_l, uint16_t delta_x_h,
+                             uint16_t delta_y_l, uint16_t delta_y_h) {
+	camera_.delta_x_l = delta_x_l;
+	camera_.delta_x_h = delta_x_h;
+	camera_.delta_y_l = delta_y_l;
+	camera_.delta_y_h = delta_y_h;
 }
