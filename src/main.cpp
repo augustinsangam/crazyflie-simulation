@@ -2,26 +2,26 @@
 #include "Decoder.hpp"
 #include "RTStatus.hpp"
 #include "UUID.hpp"
-#include <argos3/core/control_interface/ci_controller.h>
-#include <argos3/core/utility/configuration/argos_configuration.h>
-#include <argos3/core/utility/logging/argos_log.h>
-#include <argos3/core/utility/math/angles.h>
-#include <argos3/core/utility/math/rng.h>
-#include <argos3/core/utility/math/vector2.h>
-#include <argos3/core/utility/math/vector3.h>
-#include <argos3/plugins/robots/generic/control_interface/ci_battery_sensor.h>
-#include <argos3/plugins/robots/generic/control_interface/ci_leds_actuator.h>
-#include <argos3/plugins/robots/generic/control_interface/ci_positioning_sensor.h>
-#include <argos3/plugins/robots/generic/control_interface/ci_quadrotor_position_actuator.h>
-#include <bits/stdint-uintn.h>
 #include <cstdint>
 #include <iostream>
-#include <math.h>
 #include <ostream>
 #include <random>
 #include <string>
 #include <thread>
 #include <utility>
+
+/* argos::CCI_Controller */
+#include <argos3/core/control_interface/ci_controller.h>
+/* argos::TConfigurationNode */
+#include <argos3/core/utility/configuration/argos_configuration.h>
+/* argos::Abs */
+#include <argos3/core/utility/math/general.h>
+/* argos::CCI_BatterySensor */
+#include <argos3/plugins/robots/generic/control_interface/ci_battery_sensor.h>
+/* argos::CCI_PositioningSensor */
+#include <argos3/plugins/robots/generic/control_interface/ci_positioning_sensor.h>
+/* argos::CCI_QuadRotorPositionActuator */
+#include <argos3/plugins/robots/generic/control_interface/ci_quadrotor_position_actuator.h>
 
 static uint16_t id = 0;
 
@@ -30,7 +30,7 @@ private:
 	// 8 ticks per second
 	static constexpr const uint8_t tick_rate_{8};
 	// 2 pulses per second
-	static constexpr const uint8_t pulse_rate_{1};
+	static constexpr const uint8_t pulse_rate_{2};
 	// 1 pule each n ticks
 	static constexpr const uint_fast8_t tick_pulse_{tick_rate_ / pulse_rate_};
 
@@ -65,20 +65,12 @@ public:
 	/* Class destructor. */
 	~CCrazyflieSensing() override = default;
 
-	/*void call(conn::mut_msg_t msg) override {
-	    next_command_ = decoder_.decode(msg);
-	    delete[] msg.first; // NOLINT
-	}*/
-
 	/*
 	 * This function initializes the controller.
 	 * The 't_node' variable points to the <parameters> section in the XML
 	 * file in the <controllers><footbot_diffusion_controller> section.
 	 */
 	void Init(argos::TConfigurationNode & /*t_node*/) override {
-		const auto v1 = conn_.connect();
-		std::cout << "connexion status: " << static_cast<int>(v1) << std::endl;
-
 		m_pcPropellers = GetActuator<argos::CCI_QuadRotorPositionActuator>(
 		    "quadrotor_position");
 
@@ -96,9 +88,8 @@ public:
 	void ControlStep() override {
 
 		// Retrieve drone data
-		const argos::CCI_BatterySensor::SReading &sBatRead =
-		    m_pcBattery->GetReading();
-		argos::CVector3 cPos = m_pcPos->GetReading().Position;
+		const auto &sBatRead = m_pcBattery->GetReading();
+		const auto &cPos = m_pcPos->GetReading().Position;
 
 		// Update drone status
 		rt_status_.setBattery(
@@ -107,23 +98,54 @@ public:
 		                            static_cast<std::float_t>(cPos.GetY()),
 		                            static_cast<std::float_t>(cPos.GetZ())));
 
-		if (tick_count_ % tick_pulse_ == 0) {
-			conn_.send(rt_status_.encode());
-		} else {
-			auto msg = conn_.recv();
-			if (msg) {
-				switch (decoder_.decode(std::move(*msg))) {
-				case cmd_t::take_off:
-					TakeOff();
-					break;
-				case cmd_t::land:
-					Land();
-					break;
-				default:
-					break;
+		switch (conn_.status()) {
+		case conn::connected:
+			if (tick_count_ % tick_pulse_ == 0) {
+				conn_.send(rt_status_.encode());
+			} else {
+				auto msg = conn_.recv();
+				if (msg) {
+					auto cmd = decoder_.decode(std::move(*msg));
+					if (cmd) {
+						switch (*cmd) {
+						case cmd_t::take_off:
+							TakeOff();
+							break;
+						case cmd_t::land:
+							Land();
+							break;
+						case cmd_t::unknown:
+						default:
+							break;
+						}
+					}
 				}
 			}
+			break;
+		case conn::plugable:
+			conn_.plug();
+			break;
+		case conn::connectable:
+			conn_.connect();
+			break;
+		case conn::unplugable:
+			conn_.unplug();
+			break;
 		}
+		// auto msg = conn_.recv();
+		// if (msg) {
+		//	std::cout << (msg->first.get()) << std::endl;
+		/*switch (decoder_.decode(std::move(*msg))) {
+		case cmd_t::take_off:
+		    TakeOff();
+		    break;
+		case cmd_t::land:
+		    Land();
+		    break;
+		default:
+		    break;
+		}*/
+		//}
 		++tick_count_;
 
 		// std::cout << "x: " << cPos.GetX() << " y: " << cPos.GetY()
@@ -167,9 +189,9 @@ public:
 	void Destroy() override {}
 
 	bool TakeOff() {
-		std::cout << "TAKEOFF" << std::endl;
+		std::cout << "TakeOff()" << std::endl;
 
-		argos::CVector3 cPos = m_pcPos->GetReading().Position;
+		auto cPos = m_pcPos->GetReading().Position;
 		if (argos::Abs(cPos.GetZ() - 2) < 0.01) {
 			return false;
 		}
@@ -182,9 +204,9 @@ public:
 	}
 
 	bool Land() {
-		std::cout << "LAND" << std::endl;
+		std::cout << "Land()" << std::endl;
 
-		argos::CVector3 cPos = m_pcPos->GetReading().Position;
+		auto cPos = m_pcPos->GetReading().Position;
 		if (argos::Abs(cPos.GetZ()) < 0.01) {
 			return false;
 		}
