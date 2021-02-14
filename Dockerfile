@@ -5,10 +5,10 @@ ENV DEBIAN_FRONTEND="noninteractive"
 RUN apt-get update
 
 RUN apt-get install -y \
-    cmake \
+	cmake \
 	freeglut3-dev \
 	g++ \
-    git \
+	git \
 	ninja-build \
 	qt5-default
 
@@ -28,8 +28,11 @@ RUN ldconfig
 RUN argos3 --version
 
 RUN apt-get install rapidjson-dev uuid-dev
-
-ADD . /drone
+RUN mkdir /drone
+COPY include /drone/include
+COPY src /drone/src
+COPY CMakeLists.txt /drone/CMakeLists.txt
+COPY config.xml /drone/config.xml
 
 WORKDIR /build
 RUN cmake \
@@ -37,4 +40,4 @@ RUN cmake \
 	../drone
 RUN ninja
 
-CMD argos3 -c ../drone/config.xml
+CMD argos3 -c /drone/config.xml

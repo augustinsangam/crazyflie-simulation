@@ -1,7 +1,6 @@
 #include "Conn.hpp"
 #include "Decoder.hpp"
 #include "RTStatus.hpp"
-#include "UUID.hpp"
 #include <argos3/core/control_interface/ci_controller.h>
 #include <argos3/core/utility/configuration/argos_configuration.h>
 #include <argos3/core/utility/logging/argos_log.h>
