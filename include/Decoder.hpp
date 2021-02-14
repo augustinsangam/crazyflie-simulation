@@ -34,5 +34,6 @@ public:
 
 	Decoder();
 
-	cmd_t decode(std::pair<std::unique_ptr<char[]>, std::size_t> &&msg);
+	std::optional<cmd_t>
+	decode(std::pair<std::unique_ptr<char[]>, std::size_t> &&msg);
 };
