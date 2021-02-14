@@ -21,14 +21,17 @@ extern "C" {
 namespace conn {
 
 enum state : int_fast8_t {
-	ok = 0,
-	unconnected = -1,
 	unknown = -127,
+	plugable = 0,
+	connectable,
+	connected,
+	unplugable,
 };
 
 class Conn { // NOLINT
-	bool connected_{};
 	std::size_t msg_len_;
+
+	std::atomic<state> state_;
 
 	int sock_;
 	struct sockaddr_in addr_;
@@ -37,8 +40,8 @@ class Conn { // NOLINT
 	Chn<std::string> output_chn_;
 	std::thread input_thr_, output_thr_;
 
-	std::mutex connexion_mtx_;
-	std::condition_variable connexion_wait_;
+	std::mutex connect_mtx_;
+	std::condition_variable connect_wait_;
 
 	static void input_thread(Conn *conn);
 	static void output_thread(Conn *conn);
@@ -48,8 +51,12 @@ public:
 
 	~Conn();
 
-	state connect();
+	state status();
 
+	void plug();
+	void unplug();
+
+	void connect();
 	void disconnect();
 
 	void send(std::string &&msg);

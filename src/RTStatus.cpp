@@ -62,6 +62,12 @@ std::string RTStatus::encode() {
 	w.Double(pos_.z());
 	w.EndArray();
 
+	w.String("ledOn");
+	w.Bool(false);
+
+	w.String("real");
+	w.Bool(false);
+
 	w.EndObject();
 
 	w.EndObject();

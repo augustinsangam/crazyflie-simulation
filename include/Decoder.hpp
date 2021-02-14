@@ -4,7 +4,16 @@
 #include <unordered_map>
 #include <vector>
 
-enum cmd_t : int_fast8_t { unknown = -1, none, pulse, take_off, land };
+enum cmd_t : int_fast8_t {
+	unknown = -1,
+	none,
+	pulse,
+	take_off,
+	land,
+	lighten,
+	darken,
+	start_mission
+};
 
 class Decoder {
 private:
@@ -16,12 +25,15 @@ public:
 			return "unknown";
 		}
 
-		std::vector<std::string> types_{"", "pulse", "take_off", "land"};
+		std::vector<std::string> types_{
+		    "",        "pulse",  "takeOff",     "land",
+		    "lighten", "darken", "startMission"};
 
 		return types_[static_cast<size_t>(cmd)]; // NOLINT
 	}
 
 	Decoder();
 
-	cmd_t decode(std::pair<std::unique_ptr<char[]>, std::size_t> &&msg);
+	std::optional<cmd_t>
+	decode(std::pair<std::unique_ptr<char[]>, std::size_t> &&msg);
 };

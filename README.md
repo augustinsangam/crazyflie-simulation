@@ -21,5 +21,5 @@ argos3 -c ../config.xml
 # Build
 docker build -t argos3-sim .
 # Run the simulator
-x11docker -it --hostdisplay --user=RETAIN -- --privileged argos3-sim argos3 -c /drone/config.xml
+x11docker -it --hostdisplay --user=RETAIN -- --network host -- --privileged argos3-sim argos3 -c /drone/config.xml
 ```

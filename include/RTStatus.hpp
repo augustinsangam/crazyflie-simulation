@@ -18,11 +18,15 @@ public:
 
 	const std::string &get_name() const { return name_; }
 
+	void update(std::float_t battery, const Vec4 &pos);
+
 	bool isFlying() const { return flying_; }
 
 	std::string getName();
 
-	void update(std::float_t battery, const Vec4 &pos);
+	void setPosition(Vec4 pos) { pos_ = pos; };
+
+	void setBattery(std::float_t battery) { battery_ = battery; };
 
 	void enable();
 
