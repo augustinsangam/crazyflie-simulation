@@ -1,43 +1,20 @@
 #include "Decoder.hpp"
+#include "Conn.hpp"
 
-namespace rj = rapidjson;
+#include <rapidjson/document.h>
 
-Decoder::Decoder() {
-	/* must be the same order as enum in Decoder.hpp */
-	types.emplace_back("UNKNOWN");
-	types.emplace_back("take_off");
-	types.emplace_back("land");
-	types.emplace_back("robot_update");
-}
+Decoder::Decoder()
+    : map_{{"", cmd_t::none},
+           {"pulse", cmd_t::pulse},
+           {"take_off", cmd_t::take_off},
+           {"land", cmd_t::land}} {}
 
-void Decoder::decode(const std::string &msg) {
-	rj::Document document;
-	document.Parse<0>(msg.c_str());
-	std::string msgType = document["type"].GetString();
-	std::cout << msgType << std::endl;
-	MESSAGE_TYPE type = decodeType(msgType);
+cmd_t Decoder::decode(std::pair<std::unique_ptr<char[]>, std::size_t> &&msg) {
+	rapidjson::Document document;
+	document.Parse<0>(msg.first.get(), msg.second);
 
-	switch (type) {
-	case MESSAGE_TYPE::TAKEOFF:
-		std::cout << "TakeOff()" << std::endl;
-		break;
-	case MESSAGE_TYPE::LAND:
-		std::cout << "Land()" << std::endl;
-		break;
-	case MESSAGE_TYPE::ROBOT_UPDATE:
-		std::cout << "robot_update received" << std::endl;
-		break;
-	case MESSAGE_TYPE::UNKNOWN:
-		std::cout << "Unknown message received" << std::endl;
-		break;
-	}
-};
+	const std::string msg_type = document["type"].GetString();
 
-MESSAGE_TYPE Decoder::decodeType(const std::string &msg) {
-	for (size_t i = 0; i < types.size(); i++) {
-		if (types[i] == msg) {
-			return static_cast<MESSAGE_TYPE>(i);
-		}
-	}
-	return MESSAGE_TYPE::UNKNOWN;
+	const auto it = map_.find(msg_type);
+	return it != map_.end() ? it->second : cmd_t::unknown;
 }

@@ -1,120 +1,91 @@
-#include <argos3/core/control_interface/ci_controller.h>
-/* Definition of the crazyflie position actuator */
-#include <argos3/plugins/robots/generic/control_interface/ci_quadrotor_position_actuator.h>
-/* Definition of the crazyflie position sensor */
-#include <argos3/plugins/robots/generic/control_interface/ci_positioning_sensor.h>
-/* Definition of the crazyflie battery sensor */
-#include <argos3/plugins/robots/generic/control_interface/ci_battery_sensor.h>
-/* Definitions for random number generation */
-#include <argos3/core/utility/math/rng.h>
-/* Function definitions for XML parsing */
-#include <argos3/core/utility/configuration/argos_configuration.h>
-/* 2D vector definition */
-#include <argos3/core/utility/math/vector2.h>
-/* Logging */
+#include "Conn.hpp"
+#include "Decoder.hpp"
 #include "RTStatus.hpp"
+#include <argos3/core/control_interface/ci_controller.h>
+#include <argos3/core/utility/configuration/argos_configuration.h>
 #include <argos3/core/utility/logging/argos_log.h>
+#include <argos3/core/utility/math/angles.h>
+#include <argos3/core/utility/math/rng.h>
+#include <argos3/core/utility/math/vector2.h>
+#include <argos3/core/utility/math/vector3.h>
+#include <argos3/plugins/robots/generic/control_interface/ci_battery_sensor.h>
 #include <argos3/plugins/robots/generic/control_interface/ci_leds_actuator.h>
+#include <argos3/plugins/robots/generic/control_interface/ci_positioning_sensor.h>
+#include <argos3/plugins/robots/generic/control_interface/ci_quadrotor_position_actuator.h>
+#include <bits/stdint-uintn.h>
+#include <cstdint>
 #include <iostream>
+#include <math.h>
 #include <ostream>
+#include <random>
+#include <string>
+#include <thread>
+#include <utility>
 
-namespace uuid {
-static std::random_device rd;
-static std::mt19937 gen(rd());
-static std::uniform_int_distribution<> dis(0, 15);
-static std::uniform_int_distribution<> dis2(8, 11);
-
-std::string generate_uuid_v4() {
-	std::stringstream ss;
-	int i;
-	ss << std::hex;
-	for (i = 0; i < 8; i++) {
-		ss << dis(gen);
-	}
-	ss << "-";
-	for (i = 0; i < 4; i++) {
-		ss << dis(gen);
-	}
-	ss << "-4";
-	for (i = 0; i < 3; i++) {
-		ss << dis(gen);
-	}
-	ss << "-";
-	ss << dis2(gen);
-	for (i = 0; i < 3; i++) {
-		ss << dis(gen);
-	}
-	ss << "-";
-	for (i = 0; i < 12; i++) {
-		ss << dis(gen);
-	};
-	return ss.str();
-}
-} // namespace uuid
+static uint16_t id = 0;
 
 class CCrazyflieSensing : public argos::CCI_Controller {
 private:
+	// 8 ticks per second
+	static constexpr const uint8_t tick_rate_{8};
+	// 2 pulses per second
+	static constexpr const uint8_t pulse_rate_{1};
+	// 1 pule each n ticks
+	static constexpr const uint_fast8_t tick_pulse_{tick_rate_ / pulse_rate_};
+
+	uint32_t tick_count_{};
+	conn::Conn conn_;
+	RTStatus rt_status_;
+	Decoder decoder_;
+	int counter_ = 0;
+	int squareSize_ = 5;
+	std::array<argos::CVector3, 4> squareMoves_ = {
+	    argos::CVector3(1, 0, 0), argos::CVector3(0, 1, 0),
+	    argos::CVector3(-1, 0, 0), argos::CVector3(0, -1, 0)};
+
 	/* Pointer to the position actuator */
-	argos::CCI_QuadRotorPositionActuator *m_pcPropellers;
+	argos::CCI_QuadRotorPositionActuator *m_pcPropellers{};
 
 	/* Pointer to the positioning sensor */
-	argos::CCI_PositioningSensor *m_pcPos;
+	argos::CCI_PositioningSensor *m_pcPos{};
 
 	/* Pointer to the battery sensor */
-	argos::CCI_BatterySensor *m_pcBattery;
-
-	/* The random number generator */
-	argos::CRandom::CRNG *m_pcRNG;
-
-	RTStatus rtStatus;
-
-	/* Current step */
-	uint m_uiCurrentStep;
+	argos::CCI_BatterySensor *m_pcBattery{};
 
 public:
 	/* Class constructor. */
 	CCrazyflieSensing()
-	    : m_pcPropellers(NULL), m_pcRNG(NULL), m_pcPos(NULL), m_pcBattery(NULL),
-	      m_uiCurrentStep(0) {
-		this->rtStatus = RTStatus(uuid::generate_uuid_v4());
+	    : conn_("localhost", 3995), rt_status_("drone" + std::to_string(id++)),
+	      decoder_() {
+		std::cout << "drone " << rt_status_.get_name() << " created"
+		          << std::endl;
 	}
 
 	/* Class destructor. */
 	~CCrazyflieSensing() override = default;
+
+	/*void call(conn::mut_msg_t msg) override {
+	    next_command_ = decoder_.decode(msg);
+	    delete[] msg.first; // NOLINT
+	}*/
 
 	/*
 	 * This function initializes the controller.
 	 * The 't_node' variable points to the <parameters> section in the XML
 	 * file in the <controllers><footbot_diffusion_controller> section.
 	 */
-	void Init(argos::TConfigurationNode &t_node) override {
-		try {
-			/*
-			 * Initialize sensors/actuators
-			 */
-			m_pcPropellers = GetActuator<argos::CCI_QuadRotorPositionActuator>(
-			    "quadrotor_position");
-			try {
-				m_pcPos =
-				    GetSensor<argos::CCI_PositioningSensor>("positioning");
-			} catch (argos::CARGoSException &ex) {
-			}
-			try {
-				m_pcBattery = GetSensor<argos::CCI_BatterySensor>("battery");
-			} catch (argos::CARGoSException &ex) {
-			}
-		} catch (argos::CARGoSException &ex) {
-		}
-		/*
-		 * Initialize other stuff
-		 */
-		/* Create a random number generator. We use the 'argos' category so
-		   that creation, reset, seeding and cleanup are managed by ARGoS. */
-		m_pcRNG = argos::CRandom::CreateRNG("argos");
+	void Init(argos::TConfigurationNode & /*t_node*/) override {
+		const auto v1 = conn_.connect();
+		std::cout << "connexion status: " << static_cast<int>(v1) << std::endl;
 
-		m_uiCurrentStep = 0;
+		m_pcPropellers = GetActuator<argos::CCI_QuadRotorPositionActuator>(
+		    "quadrotor_position");
+
+		m_pcPos = GetSensor<argos::CCI_PositioningSensor>("positioning");
+
+		m_pcBattery = GetSensor<argos::CCI_BatterySensor>("battery");
+
 		std::cout << "Init OK" << std::endl;
-		Reset();
 	}
 
 	/*
@@ -122,7 +93,6 @@ public:
 	 * The length of the time step is set in the XML file.
 	 */
 	void ControlStep() override {
-		m_pcPropellers->SetRelativeYaw(argos::CRadians::PI_OVER_SIX);
 
 		// Retrieve drone data
 		const argos::CCI_BatterySensor::SReading &sBatRead =
@@ -130,15 +100,50 @@ public:
 		argos::CVector3 cPos = m_pcPos->GetReading().Position;
 
 		// Update drone status
-		rtStatus.update(sBatRead.AvailableCharge, cPos.GetX(), cPos.GetY(),
-		                cPos.GetZ());
+		rt_status_.update(static_cast<std::float_t>(sBatRead.AvailableCharge),
+		                  Vec4(static_cast<std::float_t>(cPos.GetX()),
+		                       static_cast<std::float_t>(cPos.GetY()),
+		                       static_cast<std::float_t>(cPos.GetZ())));
 
-		/* X times per second, send the drone status to the socket */
-		std::string json = rtStatus.encode();
-		std::cout << json << std::endl;
-		/* socket->send(rtStatus->encode()) */
+		if (tick_count_ % tick_pulse_ == 0) {
+			conn_.send(rt_status_.encode());
+		} else {
+			auto msg = conn_.recv();
+			if (msg) {
+				switch (decoder_.decode(std::move(*msg))) {
+				case cmd_t::take_off:
+					TakeOff();
+					break;
+				case cmd_t::land:
+					Land();
+					break;
+				default:
+					break;
+				}
+			}
+		}
+		++tick_count_;
 
-		m_uiCurrentStep++;
+		// std::cout << "x: " << cPos.GetX() << " y: " << cPos.GetY()
+		//           << " z: " << cPos.GetZ() << std::endl;
+		if (rt_status_.isFlying()) {
+			argos::CVector3 nextMove;
+			++counter_;
+			if (counter_ < 1 * squareSize_) {
+				nextMove = squareMoves_[0];
+			} else if (counter_ < 2 * squareSize_) {
+				nextMove = squareMoves_[1];
+			} else if (counter_ < 3 * squareSize_) {
+				nextMove = squareMoves_[2];
+			} else if (counter_ < 4 * squareSize_) {
+				nextMove = squareMoves_[3];
+			} else {
+				counter_ = 0;
+				m_pcPropellers->SetAbsolutePosition(argos::CVector3(0, 0, 0));
+				return;
+			}
+			m_pcPropellers->SetRelativePosition(nextMove);
+		}
 	}
 
 	/*
@@ -149,7 +154,7 @@ public:
 	 * so the function could have been omitted. It's here just for
 	 * completeness.
 	 */
-	void Reset() override {}
+	void Reset() override { tick_count_ = 0; }
 
 	/*
 	 * Called to cleanup what done by Init() when the experiment finishes.
@@ -160,20 +165,31 @@ public:
 	void Destroy() override {}
 
 	bool TakeOff() {
+		std::cout << "TAKEOFF" << std::endl;
+
 		argos::CVector3 cPos = m_pcPos->GetReading().Position;
-		if (argos::Abs(cPos.GetZ() - 2.0f) < 0.01f) {
+		if (argos::Abs(cPos.GetZ() - 2) < 0.01) {
 			return false;
 		}
-		cPos.SetZ(2.0f);
+
+		rt_status_.enable();
+
+		cPos.SetZ(2);
 		m_pcPropellers->SetAbsolutePosition(cPos);
 		return true;
 	}
 
 	bool Land() {
+		std::cout << "LAND" << std::endl;
+
 		argos::CVector3 cPos = m_pcPos->GetReading().Position;
-		if (argos::Abs(cPos.GetZ()) < 0.01f)
+		if (argos::Abs(cPos.GetZ()) < 0.01) {
 			return false;
-		cPos.SetZ(0.0f);
+		}
+
+		rt_status_.disable();
+
+		cPos.SetZ(0);
 		m_pcPropellers->SetAbsolutePosition(cPos);
 		return true;
 	}

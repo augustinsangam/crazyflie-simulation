@@ -1,73 +1,100 @@
 #include "RTStatus.hpp"
+#include "Conn.hpp"
+#include "Decoder.hpp"
+#include "Vec3.hpp"
+#include <array>
+#include <ctime>
+#include <iostream>
+#include <utility>
 
-namespace rj = rapidjson;
+#include <rapidjson/encodings.h>
+#include <rapidjson/writer.h>
 
-RTStatus::RTStatus()
-    : name(""), batteryLevel(0), posX(0), posY(0), posZ(0), speed(0),
-      isOn(false) {}
+class StringHolder {
+private:
+	std::string *s_;
 
-RTStatus::RTStatus(const std::string &name)
-    : name(name), batteryLevel(0), posX(0), posY(0), posZ(0), speed(0),
-      isOn(false) {
-	enable();
-}
+public:
+	using Ch = rapidjson::UTF8<>::Ch;
 
-std::string RTStatus::encode() const {
-	rj::StringBuffer sb;
-	rj::Writer<rj::StringBuffer> writer(sb);
-
-	writer.StartObject();
-	writer.String("type");
-	writer.String("robot_update");
-	writer.String("data");
-	writer.StartObject();
-	writer.String("name");
-	writer.String(name.c_str());
-	writer.String("speed");
-	writer.Double(speed);
-	writer.String("batteryPercentage");
-	writer.Double(batteryLevel * 100);
-	writer.String("localisation");
-	writer.StartObject();
-	writer.String("x");
-	writer.Double(posX);
-	writer.String("y");
-	writer.Double(posY);
-	writer.String("z");
-	writer.Double(posZ);
-	writer.EndObject();
-	writer.String("lastUpdate");
-	writer.Int64(std::time(nullptr));
-	writer.String("isOn");
-	writer.Bool(isOn);
-	writer.EndObject();
-
-	return sb.GetString();
-}
-
-void RTStatus::update(argos::Real batteryLevelU, argos::Real posXU,
-                      argos::Real posYU, argos::Real posZU) {
-	if (!isOn) {
-		return;
-	}
-	this->batteryLevel = batteryLevelU;
-	double dist = sqrt(pow(posXU - posX, 2) + pow(posYU - posY, 2) +
-	                   pow(posZU - posZ, 2));
-	/* 10 is the tickrate in <framework> in config.xml */
-	this->speed = dist / (double)10;
-	this->posX = posXU;
-	this->posY = posYU;
-	this->posZ = posZU;
+	explicit StringHolder(std::string *s) : s_(s) { s_->reserve(4096); }
+	std::size_t Size() const { return s_->length(); }
+	void Put(char c) { s_->push_back(c); }
+	void Clear() { s_->clear(); }
+	void Flush() {}
 };
 
-void RTStatus::enable() { isOn = true; }
+RTStatus::RTStatus(std::string name)
+    : flying_{false}, name_(std::move(name)), speed_{0}, battery_{0}, pos_(0) {}
 
-void RTStatus::disable() { isOn = false; }
+std::string RTStatus::encode() {
+	std::string s;
+	StringHolder sh(&s);
+	rapidjson::Writer<StringHolder> w(sh);
+
+	w.StartObject();
+
+	w.String("type");
+	w.String("pulse");
+
+	w.String("data");
+	w.StartObject();
+
+	w.String("timestamp");
+	w.Int64(std::time(nullptr));
+
+	w.String("name");
+	w.String(name_);
+
+	w.String("flying");
+	w.Bool(flying_);
+
+	w.String("battery");
+	w.Double(battery_);
+
+	w.String("speed");
+	w.Double(speed_);
+
+	w.String("position");
+	w.StartArray();
+	w.Double(pos_.x());
+	w.Double(pos_.y());
+	w.Double(pos_.z());
+	w.EndArray();
+
+	w.EndObject();
+
+	w.EndObject();
+
+	return s;
+}
+
+void RTStatus::update(std::float_t battery, const Vec4 &pos) {
+	if (!flying_) {
+		return;
+	}
+
+	battery_ = battery;
+	/* 10 is the tickrate in <framework> in config.xml */
+	speed_ = Vec3::norm(Vec3::sub(pos, pos_)) / 10;
+	pos_ = pos;
+}
+
+void RTStatus::enable() { flying_ = true; }
+
+void RTStatus::disable() { flying_ = false; }
 
 void RTStatus::print() const {
 	std::cout << "Updated data : " << std::endl
-	          << "battery_level: " << this->batteryLevel << std::endl
-	          << "posX: " << this->posX << std::endl
-	          << "posY: " << this->posY << std::endl
-	          << "posZ: " << this->posZ << std::endl;
+	          << "battery_level: " << battery_ << std::endl
+	          << "pos: " << pos_.x() << " " << pos_.y() << " " << pos_.z()
+	          << std::endl;
+}
+
+std::string RTStatus::getName() {
+	std::string shortName;
+	for (size_t i = 0; i < 5; i++) {
+		shortName += name_[i];
+	}
+	return shortName;
 }
