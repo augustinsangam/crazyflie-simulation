@@ -55,8 +55,8 @@ private:
 public:
 	/* Class constructor. */
 	CCrazyflieSensing()
-	    : conn_("localhost", 3995), rt_status_("drone" + std::to_string(id++)),
-	      decoder_() {
+	    : conn_("localhost", 3995),
+	      rt_status_("argos_drone_" + std::to_string(id++)), decoder_() {
 		std::cout << "drone " << rt_status_.get_name() << " created"
 		          << std::endl;
 	}

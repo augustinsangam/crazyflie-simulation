@@ -6,8 +6,11 @@
 Decoder::Decoder()
     : map_{{"", cmd_t::none},
            {"pulse", cmd_t::pulse},
-           {"take_off", cmd_t::take_off},
-           {"land", cmd_t::land}} {}
+           {"takeOff", cmd_t::take_off},
+           {"land", cmd_t::land},
+           {"lighten", cmd_t::lighten},
+           {"darken", cmd_t::darken},
+           {"startMission", cmd_t::start_mission}} {}
 
 cmd_t Decoder::decode(std::pair<std::unique_ptr<char[]>, std::size_t> &&msg) {
 	rapidjson::Document document;
