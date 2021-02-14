@@ -28,6 +28,8 @@ public:
 	void setCameraData(uint16_t delta_x_l, uint16_t delta_x_h,
 	                   uint16_t delta_y_l, uint16_t delta_y_h);
 
+	bool isFlying() const { return flying_; }
+
 	std::string getName();
 
 	void setPosition(Vec4 pos) { pos_ = pos; };

@@ -5,8 +5,10 @@
 #include <argos3/core/control_interface/ci_controller.h>
 #include <argos3/core/utility/configuration/argos_configuration.h>
 #include <argos3/core/utility/logging/argos_log.h>
+#include <argos3/core/utility/math/angles.h>
 #include <argos3/core/utility/math/rng.h>
 #include <argos3/core/utility/math/vector2.h>
+#include <argos3/core/utility/math/vector3.h>
 #include <argos3/plugins/robots/generic/control_interface/ci_battery_sensor.h>
 #include <argos3/plugins/robots/generic/control_interface/ci_leds_actuator.h>
 #include <argos3/plugins/robots/generic/control_interface/ci_positioning_sensor.h>
@@ -14,11 +16,14 @@
 #include <bits/stdint-uintn.h>
 #include <cstdint>
 #include <iostream>
+#include <math.h>
 #include <ostream>
 #include <random>
 #include <string>
 #include <thread>
 #include <utility>
+
+static uint16_t id = 0;
 
 class CCrazyflieSensing : public argos::CCI_Controller {
 private:
@@ -33,6 +38,11 @@ private:
 	conn::Conn conn_;
 	RTStatus rt_status_;
 	Decoder decoder_;
+	int counter_ = 0;
+	int squareSize_ = 5;
+	std::array<argos::CVector3, 4> squareMoves_ = {
+	    argos::CVector3(1, 0, 0), argos::CVector3(0, 1, 0),
+	    argos::CVector3(-1, 0, 0), argos::CVector3(0, -1, 0)};
 
 	/* Pointer to the position actuator */
 	argos::CCI_QuadRotorPositionActuator *m_pcPropellers{};
@@ -46,7 +56,8 @@ private:
 public:
 	/* Class constructor. */
 	CCrazyflieSensing()
-	    : conn_("localhost", 3995), rt_status_(uuid_gen()), decoder_() {
+	    : conn_("localhost", 3995), rt_status_("drone" + std::to_string(id++)),
+	      decoder_() {
 		std::cout << "drone " << rt_status_.get_name() << " created"
 		          << std::endl;
 	}
@@ -83,7 +94,6 @@ public:
 	 * The length of the time step is set in the XML file.
 	 */
 	void ControlStep() override {
-		m_pcPropellers->SetRelativeYaw(argos::CRadians::PI_OVER_SIX);
 
 		// Retrieve drone data
 		const argos::CCI_BatterySensor::SReading &sBatRead =
@@ -114,8 +124,28 @@ public:
 				}
 			}
 		}
-
 		++tick_count_;
+
+		// std::cout << "x: " << cPos.GetX() << " y: " << cPos.GetY()
+		//           << " z: " << cPos.GetZ() << std::endl;
+		if (rt_status_.isFlying()) {
+			argos::CVector3 nextMove;
+			++counter_;
+			if (counter_ < 1 * squareSize_) {
+				nextMove = squareMoves_[0];
+			} else if (counter_ < 2 * squareSize_) {
+				nextMove = squareMoves_[1];
+			} else if (counter_ < 3 * squareSize_) {
+				nextMove = squareMoves_[2];
+			} else if (counter_ < 4 * squareSize_) {
+				nextMove = squareMoves_[3];
+			} else {
+				counter_ = 0;
+				m_pcPropellers->SetAbsolutePosition(argos::CVector3(0, 0, 0));
+				return;
+			}
+			m_pcPropellers->SetRelativePosition(nextMove);
+		}
 	}
 
 	/*
