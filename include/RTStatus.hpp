@@ -18,6 +18,8 @@ public:
 
 	const std::string &get_name() const { return name_; }
 
+	bool isFlying() const { return flying_; }
+
 	std::string getName();
 
 	void update(std::float_t battery, const Vec4 &pos);
