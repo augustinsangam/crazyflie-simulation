@@ -127,7 +127,7 @@ public:
 
 		// std::cout << "x: " << cPos.GetX() << " y: " << cPos.GetY()
 		//           << " z: " << cPos.GetZ() << std::endl;
-		if (!rt_status_.isFlying()) {
+		if (rt_status_.isFlying()) {
 			argos::CVector3 nextMove;
 			++counter_;
 			if (counter_ < 1 * squareSize_) {
