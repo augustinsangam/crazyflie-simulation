@@ -1,5 +1,7 @@
 #include "Conn.hpp"
+#include <bits/c++config.h>
 #include <cstdint>
+#include <iostream>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -34,6 +36,7 @@ public:
 
 	Decoder();
 
-	std::optional<cmd_t>
-	decode(std::pair<std::unique_ptr<char[]>, std::size_t> &&msg);
+	cmd_t decode(std::pair<std::unique_ptr<char[]>, std::size_t> &&msg);
+	std::string getName(std::pair<std::unique_ptr<char[]>, std::size_t> &&msg);
+	bool msgValid(std::pair<std::unique_ptr<char[]>, std::size_t> &&msg);
 };

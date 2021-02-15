@@ -81,9 +81,9 @@ void RTStatus::update(std::float_t battery, const Vec4 &pos) {
 		return;
 	}
 
-	battery_ = battery;
-	/* 10 is the tickrate in <framework> in config.xml */
-	speed_ = Vec3::norm(Vec3::sub(pos, pos_)) / 10;
+	battery_ = battery * 100;
+	/* 8 is the tickrate in <framework> in config.xml */
+	speed_ = Vec3::norm(Vec3::sub(pos, pos_)) / 8;
 	pos_ = pos;
 }
 

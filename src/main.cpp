@@ -1,6 +1,8 @@
 #include "Conn.hpp"
 #include "Decoder.hpp"
 #include "RTStatus.hpp"
+#include <argos3/core/utility/math/vector3.h>
+#include <bits/stdint-uintn.h>
 #include <cstdint>
 #include <iostream>
 #include <ostream>
@@ -22,7 +24,7 @@
 /* argos::CCI_QuadRotorPositionActuator */
 #include <argos3/plugins/robots/generic/control_interface/ci_quadrotor_position_actuator.h>
 
-static uint16_t id = 0;
+static uint16_t mainId = 0;
 
 class CCrazyflieSensing : public argos::CCI_Controller {
 private:
@@ -36,12 +38,13 @@ private:
 	uint32_t tick_count_{};
 	conn::Conn conn_;
 	RTStatus rt_status_;
+	uint16_t id_ = mainId++;
 	Decoder decoder_;
 	int counter_ = 0;
 	int squareSize_ = 5;
 	std::array<argos::CVector3, 4> squareMoves_ = {
-	    argos::CVector3(1, 0, 0), argos::CVector3(0, 1, 0),
-	    argos::CVector3(-1, 0, 0), argos::CVector3(0, -1, 0)};
+	    argos::CVector3(1, 0, 0.5), argos::CVector3(0, 1, 0.5),
+	    argos::CVector3(-1, 0, 0.5), argos::CVector3(0, -1, 0.5)};
 
 	/* Pointer to the position actuator */
 	argos::CCI_QuadRotorPositionActuator *m_pcPropellers{};
@@ -56,7 +59,7 @@ public:
 	/* Class constructor. */
 	CCrazyflieSensing()
 	    : conn_("localhost", 3995),
-	      rt_status_("argos_drone_" + std::to_string(id++)), decoder_() {
+	      rt_status_("argos_drone_" + std::to_string(mainId)), decoder_() {
 		std::cout << "drone " << rt_status_.get_name() << " created"
 		          << std::endl;
 	}
@@ -102,15 +105,25 @@ public:
 				conn_.send(rt_status_.encode());
 			} else {
 				auto msg = conn_.recv();
-				if (msg) {
+				if (msg && decoder_.msgValid(std::move(*msg))) {
+					auto dest = decoder_.getName(std::move(*msg));
 					auto cmd = decoder_.decode(std::move(*msg));
-					if (cmd) {
-						switch (*cmd) {
+					if (dest == rt_status_.get_name()) {
+						switch (cmd) {
 						case cmd_t::take_off:
-							TakeOff();
+							if (!rt_status_.isFlying()) {
+								std::cout
+								    << rt_status_.get_name() + " : TakeOff()"
+								    << std::endl;
+								rt_status_.enable();
+							}
 							break;
 						case cmd_t::land:
-							Land();
+							if (rt_status_.isFlying()) {
+								std::cout << rt_status_.get_name() + " : Land()"
+								          << std::endl;
+								rt_status_.disable();
+							}
 							break;
 						case cmd_t::unknown:
 						default:
@@ -145,10 +158,14 @@ public:
 				nextMove = squareMoves_[3];
 			} else {
 				counter_ = 0;
-				m_pcPropellers->SetAbsolutePosition(argos::CVector3(0, 0, 0));
+				m_pcPropellers->SetAbsolutePosition(
+				    argos::CVector3(0, 0, cPos.GetZ()));
 				return;
 			}
 			m_pcPropellers->SetRelativePosition(nextMove);
+		} else {
+			m_pcPropellers->SetAbsolutePosition(
+			    argos::CVector3(0.1 * id_, 0.1 * id_, 0.01));
 		}
 	}
 
@@ -169,36 +186,6 @@ public:
 	 * completeness.
 	 */
 	void Destroy() override {}
-
-	bool TakeOff() {
-		std::cout << "TakeOff()" << std::endl;
-
-		auto cPos = m_pcPos->GetReading().Position;
-		if (argos::Abs(cPos.GetZ() - 2) < 0.01) {
-			return false;
-		}
-
-		rt_status_.enable();
-
-		cPos.SetZ(2);
-		m_pcPropellers->SetAbsolutePosition(cPos);
-		return true;
-	}
-
-	bool Land() {
-		std::cout << "Land()" << std::endl;
-
-		auto cPos = m_pcPos->GetReading().Position;
-		if (argos::Abs(cPos.GetZ()) < 0.01) {
-			return false;
-		}
-
-		rt_status_.disable();
-
-		cPos.SetZ(0);
-		m_pcPropellers->SetAbsolutePosition(cPos);
-		return true;
-	}
 };
 
 // NOLINTNEXTLINE
