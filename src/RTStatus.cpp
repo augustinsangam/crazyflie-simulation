@@ -25,7 +25,8 @@ public:
 };
 
 RTStatus::RTStatus(std::string name)
-    : flying_{false}, name_(std::move(name)), speed_{0}, battery_{0}, pos_(0) {}
+    : flying_{false}, name_(std::move(name)), speed_{0}, battery_{100},
+      pos_(0) {}
 
 std::string RTStatus::encode() {
 	std::string s;
