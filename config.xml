@@ -13,7 +13,7 @@
   <!-- ************************* -->
   <framework>
     <system threads="0" />
-    <experiment length="0" ticks_per_second="8" random_seed="2932" />
+    <experiment length="0" ticks_per_second="8" random_seed="42" />
   </framework>
 
   <!-- *************** -->
@@ -28,6 +28,7 @@
       <sensors>
         <positioning implementation="default" />
         <battery implementation="default" />
+        <crazyflie_distance_scanner implementation="rot_z_only" show_rays="true" />
       </sensors>
       <params></params>
     </crazyflie_sensing_controller>
