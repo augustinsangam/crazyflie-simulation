@@ -1,0 +1,65 @@
+
+FPS:              20
+Circuit Rate:     50000
+
+Simulation Speed: 1000000
+Reactive SubRate: 50
+NoLinear Subrate: 10
+
+
+ "    Loading Component sets at:" 
+ "/home/gougoush/Desktop/Charges/INF1900/SimulIDE_0.3.12-SR8-INF1900.2/share/simulide/data" 
+
+"        Loaded Component set:           " "arduinos.xml"
+"        Loaded Component set:           " "avrs.xml"
+"        Loaded Component set:           " "ic74.xml"
+"        Loaded Component set:           " "icCD.xml"
+"        Loaded Component set:           " "keys.xml"
+"        Loaded Component set:           " "pics.xml"
+"        Loaded Component set:           " "ternary.xml"
+
+
+
+FPS:              20
+Circuit Rate:     50000
+
+Simulation Speed: 1000000
+Reactive SubRate: 50
+NoLinear Subrate: 10
+
+
+Initializing 0 Buses
+
+Initializing 2 eNodes
+
+Initializing 8 eElements
+
+Circuit Matrix looks good
+
+    Running... 
+
+
+    Simulation Stopped 
+
+
+FPS:              20
+Circuit Rate:     50000
+
+Simulation Speed: 1000000
+Reactive SubRate: 50
+NoLinear Subrate: 10
+
+
+Initializing 0 Buses
+
+Initializing 2 eNodes
+
+Initializing 7 eElements
+
+Circuit Matrix looks good
+
+    Running... 
+
+
+    Simulation Stopped 
+

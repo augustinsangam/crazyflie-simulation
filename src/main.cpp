@@ -1,9 +1,12 @@
+#include "Brain.hpp"
+#include "CameraData.hpp"
 #include "Conn.hpp"
 #include "Decoder.hpp"
+#include "FlowDeck.hpp"
 #include "RTStatus.hpp"
-#include <argos3/core/utility/math/vector3.h>
-#include <bits/stdint-uintn.h>
+#include "SensorData.hpp"
 #include <cstdint>
+#include <exception>
 #include <iostream>
 #include <ostream>
 #include <random>
@@ -17,12 +20,16 @@
 #include <argos3/core/utility/configuration/argos_configuration.h>
 /* argos::Abs */
 #include <argos3/core/utility/math/general.h>
+/* argos::CVector3 */
+#include <argos3/core/utility/math/vector3.h>
 /* argos::CCI_BatterySensor */
 #include <argos3/plugins/robots/generic/control_interface/ci_battery_sensor.h>
 /* argos::CCI_PositioningSensor */
 #include <argos3/plugins/robots/generic/control_interface/ci_positioning_sensor.h>
 /* argos::CCI_QuadRotorPositionActuator */
 #include <argos3/plugins/robots/generic/control_interface/ci_quadrotor_position_actuator.h>
+/* Definition of the crazyflie distance sensor */
+#include <argos3/plugins/robots/crazyflie/control_interface/ci_crazyflie_distance_scanner_sensor.h>
 
 static uint16_t mainId = 0;
 
@@ -42,6 +49,7 @@ private:
 	Decoder decoder_;
 	int counter_ = 0;
 	int squareSize_ = 5;
+	brain::Brain brain_;
 	std::array<argos::CVector3, 4> squareMoves_ = {
 	    argos::CVector3(1, 0, 0.5), argos::CVector3(0, 1, 0.5),
 	    argos::CVector3(-1, 0, 0.5), argos::CVector3(0, -1, 0.5)};
@@ -52,14 +60,20 @@ private:
 	/* Pointer to the positioning sensor */
 	argos::CCI_PositioningSensor *m_pcPos{};
 
+	/* Pointer to the crazyflie distance sensor */
+	argos::CCI_CrazyflieDistanceScannerSensor *m_pcDistance;
+
 	/* Pointer to the battery sensor */
 	argos::CCI_BatterySensor *m_pcBattery{};
+
+	FlowDeck flow_deck_{};
 
 public:
 	/* Class constructor. */
 	CCrazyflieSensing()
 	    : conn_("localhost", 3995),
-	      rt_status_("argos_drone_" + std::to_string(mainId)), decoder_() {
+	      rt_status_("argos_drone_" + std::to_string(mainId)), decoder_(),
+	      m_pcDistance(NULL), brain_() {
 		std::cout << "drone " << rt_status_.get_name() << " created"
 		          << std::endl;
 	}
@@ -79,7 +93,13 @@ public:
 		m_pcPos = GetSensor<argos::CCI_PositioningSensor>("positioning");
 
 		m_pcBattery = GetSensor<argos::CCI_BatterySensor>("battery");
+		m_pcDistance = GetSensor<argos::CCI_CrazyflieDistanceScannerSensor>(
+		    "crazyflie_distance_scanner");
 
+		const auto &cPos = m_pcPos->GetReading().Position;
+		flow_deck_.init(cPos);
+
+		// TODO : Better logging
 		std::cout << "Init OK" << std::endl;
 	}
 
@@ -89,15 +109,38 @@ public:
 	 */
 	void ControlStep() override {
 
-		// Retrieve drone data
+		// Battery
 		const auto &sBatRead = m_pcBattery->GetReading();
-		const auto &cPos = m_pcPos->GetReading().Position;
+
+		// Position
+		const auto &c_pos = m_pcPos->GetReading().Position;
+
+		// FlowDeck v2
+		// https://www.bitcraze.io/products/flow-deck-v2/
+		const auto camera_data = flow_deck_.getInitPositionDelta(c_pos);
+
+		// Look here for documentation on the distance sensor:
+		// /root/argos3/src/plugins/robots/crazyflie/control_interface/ci_crazyflie_distance_scanner_sensor.h
+		// Read distance sensor
+		// Multi-ranger deck
+		// https://www.bitcraze.io/products/multi-ranger-deck/
+		const auto &dist_data = m_pcDistance->GetLongReadingsMap();
+		auto dist_data_it = dist_data.begin();
+		SensorData sensor_data{
+		    static_cast<std::uint16_t>((dist_data_it++)->second),
+		    static_cast<std::uint16_t>((dist_data_it++)->second),
+		    static_cast<std::uint16_t>((dist_data_it++)->second),
+		    static_cast<std::uint16_t>((dist_data_it++)->second)};
+
+		auto i = 0;
+		for (auto it = dist_data.begin(); it != dist_data.end(); ++it, ++i)
+			;
 
 		// Update drone status
 		rt_status_.update(static_cast<std::float_t>(sBatRead.AvailableCharge),
-		                  Vec4(static_cast<std::float_t>(cPos.GetX()),
-		                       static_cast<std::float_t>(cPos.GetY()),
-		                       static_cast<std::float_t>(cPos.GetZ())));
+		                  Vec4(static_cast<std::float_t>(c_pos.GetX()),
+		                       static_cast<std::float_t>(c_pos.GetY()),
+		                       static_cast<std::float_t>(c_pos.GetZ())));
 
 		switch (conn_.status()) {
 		case conn::connected:
@@ -105,27 +148,18 @@ public:
 				conn_.send(rt_status_.encode());
 			} else {
 				auto msg = conn_.recv();
-				if (msg && decoder_.msgValid(std::move(*msg))) {
-					auto dest = decoder_.getName(std::move(*msg));
+				if (msg) {
 					auto cmd = decoder_.decode(std::move(*msg));
-					if (dest == rt_status_.get_name()) {
-						switch (cmd) {
-						case cmd_t::take_off:
-							if (!rt_status_.isFlying()) {
-								std::cout
-								    << rt_status_.get_name() + " : TakeOff()"
-								    << std::endl;
-								rt_status_.enable();
-							}
+					if (cmd) {
+						switch (*cmd) {
+						case take_off:
+							brain_.setState(brain::State::take_off);
 							break;
-						case cmd_t::land:
-							if (rt_status_.isFlying()) {
-								std::cout << rt_status_.get_name() + " : Land()"
-								          << std::endl;
-								rt_status_.disable();
-							}
+
+						case land:
+							brain_.setState(brain::State::land);
 							break;
-						case cmd_t::unknown:
+
 						default:
 							break;
 						}
@@ -143,30 +177,12 @@ public:
 			conn_.unplug();
 			break;
 		}
-		++tick_count_;
 
-		if (rt_status_.isFlying()) {
-			argos::CVector3 nextMove;
-			++counter_;
-			if (counter_ < 1 * squareSize_) {
-				nextMove = squareMoves_[0];
-			} else if (counter_ < 2 * squareSize_) {
-				nextMove = squareMoves_[1];
-			} else if (counter_ < 3 * squareSize_) {
-				nextMove = squareMoves_[2];
-			} else if (counter_ < 4 * squareSize_) {
-				nextMove = squareMoves_[3];
-			} else {
-				counter_ = 0;
-				m_pcPropellers->SetAbsolutePosition(
-				    argos::CVector3(0, 0, cPos.GetZ()));
-				return;
-			}
-			m_pcPropellers->SetRelativePosition(nextMove);
-		} else {
-			m_pcPropellers->SetAbsolutePosition(
-			    argos::CVector3(0.1 * id_, 0.1 * id_, 0.01));
-		}
+		Vec4 next_move = brain_.computeNextMove(&camera_data, &sensor_data);
+		m_pcPropellers->SetRelativePosition(
+		    argos::CVector3(next_move.x(), next_move.y(), next_move.z()));
+
+		++tick_count_;
 	}
 
 	/*

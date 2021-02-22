@@ -8,7 +8,7 @@
 #include <string>
 
 class SafePrint {
-	static std::mutex mtx_; // NOLINT
+	static std::mutex mtx_;
 
 	std::ostream &os_;
 	std::ostringstream oss_;
