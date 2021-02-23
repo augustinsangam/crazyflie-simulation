@@ -109,6 +109,14 @@ public:
 	 */
 	void ControlStep() override {
 
+		/*if (tick_count_ > 16) {
+		    return;
+		} else if (tick_count_ == 16) {
+		    conn_.terminate();
+		    tick_count_++;
+		    return;
+		}*/
+
 		// Battery
 		const auto &sBatRead = m_pcBattery->GetReading();
 
@@ -143,7 +151,13 @@ public:
 		                       static_cast<std::float_t>(c_pos.GetZ())));
 
 		switch (conn_.status()) {
-		case conn::connected:
+		case conn::state::plugable:
+			conn_.plug();
+			break;
+		case conn::state::connectable:
+			conn_.connect();
+			break;
+		case conn::state::connected:
 			if (tick_count_ % tick_pulse_ == 0) {
 				conn_.send(rt_status_.encode());
 			} else {
@@ -155,11 +169,9 @@ public:
 						case take_off:
 							brain_.setState(brain::State::take_off);
 							break;
-
 						case land:
 							brain_.setState(brain::State::land);
 							break;
-
 						default:
 							break;
 						}
@@ -167,14 +179,17 @@ public:
 				}
 			}
 			break;
-		case conn::plugable:
-			conn_.plug();
+		case conn::state::disconnectable:
+			conn_.disconnect();
 			break;
-		case conn::connectable:
-			conn_.connect();
-			break;
-		case conn::unplugable:
+		case conn::state::unplugable:
 			conn_.unplug();
+			break;
+		case conn::state::terminated:
+			std::cout << "connection terminated" << std::endl;
+			break;
+		case conn::state::unknown:
+			std::cerr << "connection in an unknown state" << std::endl;
 			break;
 		}
 
@@ -201,7 +216,7 @@ public:
 	 * so the function could have been omitted. It's here just for
 	 * completeness.
 	 */
-	void Destroy() override {}
+	void Destroy() override { conn_.terminate(); }
 };
 
 // NOLINTNEXTLINE

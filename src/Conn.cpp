@@ -37,65 +37,103 @@ extern "C" {
 
 namespace conn {
 
+static inline bool ended(const state::t s) {
+	return s == state::terminated || s == state::unknown;
+}
+
+static inline bool stable(const state::t s) {
+	return s == state::connected || ended(s);
+}
+
+/*
+    plugable,
+    connectable,
+    connected,
+    disconnectable,
+    unplugable,
+    terminated,
+*/
+
 void Conn::input_thread(Conn *conn) {
 	for (;;) {
-		{
+		if (!stable(conn->state_)) {
 			std::unique_lock<std::mutex> u_lock(conn->connect_mtx_);
-			conn->connect_wait_.wait(
-			    u_lock, [conn]() { return conn->state_ == connected; });
-		}
+			// Next line blocks
+			conn->connect_wait_.wait(u_lock,
+			                         [conn]() { return stable(conn->state_); });
 
-		for (;;) {
-			auto *mem = new char[conn->msg_len_];
-			const auto rc = ::recv(conn->sock_, mem, conn->msg_len_, 0);
-
-			if (rc == 0) {
-				conn->state_ = unplugable;
-				delete[] mem;
+			if (ended(conn->state_)) {
 				break;
 			}
+		}
 
-			if (rc < 0) {
-				switch (errno) {
-				case ECONNRESET:
-					conn->state_ = unplugable;
-					break;
-				default:
-					conn->state_ = unknown;
-				}
-				delete[] mem;
-				break;
+		auto *mem = new char[conn->msg_len_];
+
+		// Next line blocks
+		const auto rc = ::recv(conn->sock_, mem, conn->msg_len_, 0);
+
+		if (ended(conn->state_)) {
+			delete[] mem;
+			break;
+		}
+
+		if (rc == 0) {
+			conn->state_ = state::unplugable;
+			delete[] mem;
+			continue;
+		}
+
+		if (rc < 0) {
+			delete[] mem;
+
+			if (errno == ECONNRESET) {
+				conn->state_ = state::unplugable;
+				continue;
 			}
 
-			auto msg = make_pair(std::unique_ptr<char[]>(mem), rc);
-
-			conn->input_chn_.send(std::move(msg));
+			conn->state_ = state::unknown;
+			break;
 		}
+
+		auto msg = make_pair(std::unique_ptr<char[]>(mem), rc);
+
+		conn->input_chn_.send(std::move(msg));
 	}
 }
 
 void Conn::output_thread(Conn *conn) {
 	for (;;) {
-		{
+		if (!stable(conn->state_)) {
 			std::unique_lock<std::mutex> u_lock(conn->connect_mtx_);
-			conn->connect_wait_.wait(
-			    u_lock, [conn]() { return conn->state_ == connected; });
+			// Next line blocks
+			conn->connect_wait_.wait(u_lock,
+			                         [conn]() { return stable(conn->state_); });
+
+			if (ended(conn->state_)) {
+				break;
+			}
 		}
 
-		bool loop;
-		do {
-			const auto msg = conn->output_chn_.recv(true);
+		// Next line blocks
+		const auto msg = conn->output_chn_.recv(true);
 
-			loop = msg && ::send(conn->sock_, msg->data(), msg->size(), 0) >= 0;
-		} while (loop);
-
-		switch (errno) {
-		case EPIPE:
-		case ECONNRESET:
-			conn->state_ = unplugable;
+		if (ended(conn->state_)) {
 			break;
-		default:
-			conn->state_ = unknown;
+		}
+
+		if (!msg) {
+			conn->state_ = state::unknown;
+			break;
+		}
+
+		if (::send(conn->sock_, msg->data(), msg->size(), 0) < 0) {
+			if (errno == EPIPE || errno == ECONNRESET) {
+				conn->state_ = state::unplugable;
+				continue;
+			}
+
+			conn->state_ = state::unknown;
+			break;
 		}
 	}
 }
@@ -130,30 +168,78 @@ Conn::Conn(const std::string &host, uint16_t port, std::size_t msg_len)
 	::freeaddrinfo(res);
 }
 
-Conn::~Conn() { disconnect(); }
+Conn::~Conn() { terminate(); }
 
-state Conn::status() { return state_; }
-
-void Conn::plug() {
-	// assert(state_ == plugable);
-	sock_ = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	if (sock_ < 0) {
-		std::cerr << "socket() failed" << std::endl;
+void Conn::terminate() {
+	if (state_ == state::terminated) {
 		return;
 	}
 
-	state_ = connectable;
+	if (state_ == state::connected || state_ == state::disconnectable) {
+		disconnect();
+	}
+
+	if (state_ == state::unplugable) {
+		unplug();
+	}
+
+	std::cout << "here" << std::endl;
+	state_ = state::terminated;
+	input_chn_.drain();
+	output_chn_.drain();
+	connect_wait_.notify_all();
+	std::this_thread::yield();
+}
+
+state::t Conn::status() { return state_; }
+
+void Conn::plug() {
+	if (state_ == state::connectable) {
+		return;
+	}
+
+	if (state_ != state::plugable) {
+		std::cerr << "plug(): state is not plugable" << std::endl;
+		return;
+	}
+
+	sock_ = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if (sock_ < 0) {
+		std::cerr << "socket() failed: " << errno << std::endl;
+		return;
+	}
+
+	state_ = state::connectable;
 }
 
 void Conn::unplug() {
-	state_ = plugable;
+	if (state_ == state::plugable) {
+		return;
+	}
+
+	if (state_ != state::unplugable) {
+		std::cerr << "plug(): state is not plugable" << std::endl;
+		return;
+	}
+
 	if (::close(sock_) != 0) {
 		std::cerr << "close() failed: " << errno << std::endl;
+		return;
 	}
+
+	state_ = state::plugable;
 }
 
 void Conn::connect() {
-	// assert(state_ == connectable);
+	if (state_ == state::connected) {
+		return;
+	}
+
+	if (state_ != state::connectable) {
+		std::cerr << "connect(): state is not connectable" << std::endl;
+		return;
+	}
+
 	const auto *addr = reinterpret_cast<const sockaddr *>(&addr_);
 	const auto ret = ::connect(sock_, addr, sizeof *addr);
 	if (ret < 0) {
@@ -163,19 +249,31 @@ void Conn::connect() {
 		return;
 	}
 
-	state_ = connected;
+	state_ = state::connected;
 	connect_wait_.notify_all();
 	std::this_thread::yield();
 }
 
 void Conn::disconnect() {
-	// if (state_ == disconnectable) {
-	state_ = unplugable;
+	if (state_ == state::unplugable) {
+		return;
+	}
+
+	if (state_ != state::connected && state_ != state::disconnectable) {
+		std::cerr
+		    << "disconnect(): state is neither connected nor disconnectable: "
+		    << std::endl;
+		return;
+	}
+
 	if (::shutdown(sock_, SHUT_RDWR) != 0) {
 		std::cerr << "shutdown() failed: " << errno << std::endl;
+		return;
 	}
-	//}
+
+	state_ = state::unplugable;
 }
+
 void Conn::send(std::string &&msg) { output_chn_.send(std::move(msg)); }
 
 std::optional<std::pair<std::unique_ptr<char[]>, std::size_t>> Conn::recv() {

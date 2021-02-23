@@ -20,18 +20,23 @@ extern "C" {
 
 namespace conn {
 
-enum state : int_fast8_t {
+namespace state {
+enum t : int_fast8_t {
 	unknown = -127,
 	plugable = 0,
 	connectable,
 	connected,
+	disconnectable,
 	unplugable,
+	terminated,
 };
+} // namespace state
 
 class Conn { // NOLINT
+
 	std::size_t msg_len_;
 
-	std::atomic<state> state_;
+	std::atomic<state::t> state_;
 
 	int sock_;
 	struct sockaddr_in addr_;
@@ -51,7 +56,9 @@ public:
 
 	~Conn();
 
-	state status();
+	void terminate();
+
+	state::t status();
 
 	void plug();
 	void unplug();
