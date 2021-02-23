@@ -183,7 +183,6 @@ void Conn::terminate() {
 		unplug();
 	}
 
-	std::cout << "here" << std::endl;
 	state_ = state::terminated;
 	input_chn_.drain();
 	output_chn_.drain();
