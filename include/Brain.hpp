@@ -29,6 +29,6 @@ public:
 	Vec4 computeNextMove(const CameraData *cd, const SensorData *sd);
 };
 
-}; // namespace brain
+} // namespace brain
 
 #endif /* BRAIN_HPP */

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12.4)
-project(Project LANGUAGES CXX)
+project(Project CXX)
 
 include(CheckCXXCompilerFlag)
 
@@ -37,5 +37,6 @@ add_library(controller SHARED)
 target_compile_options(controller PRIVATE "${FPIC}")
 target_compile_definitions(controller PRIVATE RAPIDJSON_HAS_STDSTRING=1)
 target_include_directories(controller PRIVATE include)
+target_link_libraries(controller PRIVATE common)
 file(GLOB CONTROLLER_SRC src/*)
 target_sources(controller PRIVATE ${CONTROLLER_SRC})

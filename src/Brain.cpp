@@ -26,4 +26,4 @@ Vec4 Brain::computeNextMove(const CameraData *cd, const SensorData *sd) {
 	}
 }
 
-}; // namespace brain
+} // namespace brain

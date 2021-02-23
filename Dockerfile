@@ -32,13 +32,6 @@ RUN argos3 --version
 RUN apt-get install -y \
 	rapidjson-dev
 
-WORKDIR /drone
-COPY include include
-COPY src src
-COPY CMakeLists.txt config.xml ./
-
 WORKDIR /build
-RUN cmake /drone
-RUN make
 
-CMD argos3 -c /drone/config.xml
+CMD cmake /drone && make && argos3 -c /drone/config.xml
