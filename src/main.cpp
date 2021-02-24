@@ -28,7 +28,7 @@
 #include <argos3/plugins/robots/generic/control_interface/ci_positioning_sensor.h>
 /* argos::CCI_QuadRotorPositionActuator */
 #include <argos3/plugins/robots/generic/control_interface/ci_quadrotor_position_actuator.h>
-/* Definition of the crazyflie distance sensor */
+/* args::CCI_CrazyflieDistanceScannerSensor */
 #include <argos3/plugins/robots/crazyflie/control_interface/ci_crazyflie_distance_scanner_sensor.h>
 
 static uint16_t mainId = 0; // NOLINT
@@ -58,14 +58,14 @@ private:
 	/* Pointer to the position actuator */
 	argos::CCI_QuadRotorPositionActuator *m_pcPropellers{};
 
+	/* Pointer to the battery sensor */
+	argos::CCI_BatterySensor *m_pcBattery{};
+
 	/* Pointer to the positioning sensor */
 	argos::CCI_PositioningSensor *m_pcPos{};
 
 	/* Pointer to the crazyflie distance sensor */
 	argos::CCI_CrazyflieDistanceScannerSensor *m_pcDistance{};
-
-	/* Pointer to the battery sensor */
-	argos::CCI_BatterySensor *m_pcBattery{};
 
 	FlowDeck flow_deck_{};
 
@@ -110,14 +110,14 @@ public:
 	void ControlStep() override {
 
 		// Battery
-		const auto &sBatRead = m_pcBattery->GetReading();
+		const auto &battery = m_pcBattery->GetReading().AvailableCharge;
 
 		// Position
-		const auto &c_pos = m_pcPos->GetReading().Position;
+		const auto &position = m_pcPos->GetReading().Position;
 
 		// FlowDeck v2
 		// https://www.bitcraze.io/products/flow-deck-v2/
-		const auto camera_data = flow_deck_.getInitPositionDelta(c_pos);
+		const auto camera_data = flow_deck_.getInitPositionDelta(position);
 
 		// Look here for documentation on the distance sensor:
 		// /root/argos3/src/plugins/robots/crazyflie/control_interface/ci_crazyflie_distance_scanner_sensor.h
@@ -137,10 +137,10 @@ public:
 			;
 
 		// Update drone status
-		rt_status_.update(static_cast<std::float_t>(sBatRead.AvailableCharge),
-		                  Vec4(static_cast<std::float_t>(c_pos.GetX()),
-		                       static_cast<std::float_t>(c_pos.GetY()),
-		                       static_cast<std::float_t>(c_pos.GetZ())));
+		rt_status_.update(static_cast<std::float_t>(battery),
+		                  Vec4(static_cast<std::float_t>(position.GetX()),
+		                       static_cast<std::float_t>(position.GetY()),
+		                       static_cast<std::float_t>(position.GetZ())));
 
 		switch (conn_.status()) {
 		case conn::state::plugable:
@@ -185,7 +185,8 @@ public:
 			break;
 		}
 
-		Vec4 next_move = brain_.computeNextMove(&camera_data, &sensor_data);
+		const auto next_move =
+		    brain_.computeNextMove(&camera_data, &sensor_data);
 		m_pcPropellers->SetRelativePosition(
 		    argos::CVector3(next_move.x(), next_move.y(), next_move.z()));
 

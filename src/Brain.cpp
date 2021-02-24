@@ -14,13 +14,13 @@ Vec4 Brain::computeNextMove(const CameraData *cd, const SensorData *sd) {
 			state_ = State::idle;
 		}
 		std::cout << "Take Off" << std::endl;
-		return Vec4(0, 0, 0.01);
+		return Vec4(0, 0, 0.01F);
 	case State::land:
-		if (cd->z < 0.02) {
+		if (cd->z < 0.02F) {
 			state_ = State::idle;
 		}
 		std::cout << "Land" << std::endl;
-		return Vec4(0, 0, -0.01);
+		return Vec4(0, 0, -0.01F);
 	default:
 		return Vec4(0, 0, 0);
 	}
