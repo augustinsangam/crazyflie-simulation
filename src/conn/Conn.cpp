@@ -1,4 +1,4 @@
-#include "Conn.hpp"
+#include "conn/Conn.hpp"
 #include "SafePrint.hpp"
 #include <asm-generic/errno.h>
 #include <cassert>
@@ -37,22 +37,13 @@ extern "C" {
 
 namespace conn {
 
-static inline bool ended(const state::t s) {
+static inline bool ended(const state::T s) {
 	return s == state::terminated || s == state::unknown;
 }
 
-static inline bool stable(const state::t s) {
+static inline bool stable(const state::T s) {
 	return s == state::connected || ended(s);
 }
-
-/*
-    plugable,
-    connectable,
-    connected,
-    disconnectable,
-    unplugable,
-    terminated,
-*/
 
 void Conn::input_thread(Conn *conn) {
 	for (;;) {
@@ -190,7 +181,7 @@ void Conn::terminate() {
 	std::this_thread::yield();
 }
 
-state::t Conn::status() { return state_; }
+state::T Conn::status() { return state_; }
 
 void Conn::plug() {
 	if (state_ == state::connectable) {

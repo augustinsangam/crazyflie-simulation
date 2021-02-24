@@ -1,5 +1,4 @@
 #include "Decoder.hpp"
-#include "Conn.hpp"
 
 #include <rapidjson/document.h>
 #include <rapidjson/error/error.h>

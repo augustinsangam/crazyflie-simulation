@@ -1,10 +1,10 @@
 #include "Brain.hpp"
 #include "CameraData.hpp"
-#include "Conn.hpp"
 #include "Decoder.hpp"
 #include "FlowDeck.hpp"
 #include "RTStatus.hpp"
 #include "SensorData.hpp"
+#include "conn/Conn.hpp"
 #include <cstdint>
 #include <exception>
 #include <iostream>
@@ -71,7 +71,7 @@ private:
 public:
 	/* Class constructor. */
 	CCrazyflieSensing()
-	    : conn_("localhost", 3995),
+	    : conn_("localhost", 3995, 32768),
 	      rt_status_("argos_drone_" + std::to_string(mainId)), decoder_(),
 	      m_pcDistance(NULL), brain_() {
 		std::cout << "drone " << rt_status_.get_name() << " created"
