@@ -2,13 +2,12 @@
   // See https://go.microsoft.com/fwlink/?LinkId=827846
   // for the documentation about the extensions.json format
   "recommendations": [
-    "editorconfig.editorconfig",
-    "gruntfuggly.todo-tree",
+    "EditorConfig.EditorConfig",
+    "Gruntfuggly.todo-tree",
+    "cschlosser.doxdocgen",
     "llvm-vs-code-extensions.vscode-clangd",
     "ms-vscode.cmake-tools",
     "twxs.cmake",
-    "webfreak.debug",
-    "appulateinc.filewatcher",
-    "cschlosser.doxdocgen"
+    "webfreak.debug"
   ]
 }
