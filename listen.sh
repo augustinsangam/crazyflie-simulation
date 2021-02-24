@@ -1,1 +1,1 @@
-while :; do nc -k -lv 3995; done
+while :; do nc -k -lv localhost 3995; done

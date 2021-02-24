@@ -1,7 +1,8 @@
-#ifndef CONN_HPP
-#define CONN_HPP
+#ifndef CONN_CONN_HPP
+#define CONN_CONN_HPP
 
 #include "Chn.hpp"
+#include "state/T.hpp"
 
 #include <condition_variable>
 #include <cstddef>
@@ -20,18 +21,11 @@ extern "C" {
 
 namespace conn {
 
-enum state : int_fast8_t {
-	unknown = -127,
-	plugable = 0,
-	connectable,
-	connected,
-	unplugable,
-};
-
 class Conn { // NOLINT
-	std::size_t msg_len_;
 
-	std::atomic<state> state_;
+	const std::size_t msg_len_;
+
+	std::atomic<state::T> state_;
 
 	int sock_;
 	struct sockaddr_in addr_;
@@ -51,7 +45,9 @@ public:
 
 	~Conn();
 
-	state status();
+	void terminate();
+
+	state::T status();
 
 	void plug();
 	void unplug();
@@ -66,4 +62,4 @@ public:
 
 } // namespace conn
 
-#endif /* CONN_HPP */
+#endif /* CONN_CONN_HPP */
