@@ -23,6 +23,7 @@ if ! >/dev/null 2>&1 docker container inspect drone; then
 		-e 'XDG_RUNTIME_DIR=/tmp' \
 		-v "${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY}:/tmp/${WAYLAND_DISPLAY}" \
 		-v "${PWD}:/drone" \
+		--add-host=host.docker.internal:host-gateway \
 		--name=drone \
 		drone
 fi

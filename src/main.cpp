@@ -72,7 +72,7 @@ private:
 public:
 	/* Class constructor. */
 	CCrazyflieSensing()
-	    : conn_("localhost", 3995), brain_(), decoder_(),
+	    : conn_("host.docker.internal", 3995), brain_(), decoder_(),
 	      rt_status_("argos_drone_" + std::to_string(mainId)) {
 		std::cout << "drone " << rt_status_.get_name() << " created"
 		          << std::endl;
