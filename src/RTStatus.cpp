@@ -23,11 +23,19 @@ public:
 	void Clear() { s_->clear(); }
 	void Flush() {}
 };
-
+/**
+ * @brief Construct a new RTStatus::RTStatus object
+ *
+ * @param name name to identify the drone
+ */
 RTStatus::RTStatus(std::string name)
     : flying_{false}, name_(std::move(name)), speed_{0}, battery_{100},
       pos_(0) {}
-
+/**
+ * @brief Encodes the current status of the drone as json
+ *
+ * @return std::string serialized pulse object
+ */
 std::string RTStatus::encode() {
 	std::string s;
 	StringHolder sh(&s);
@@ -76,6 +84,12 @@ std::string RTStatus::encode() {
 	return s;
 }
 
+/**
+ * @brief Updates the status of the drone (battery, position, and speed)
+ *
+ * @param battery
+ * @param pos
+ */
 void RTStatus::update(std::float_t battery, const Vec4 &pos) {
 	if (!flying_) {
 		return;
@@ -87,10 +101,22 @@ void RTStatus::update(std::float_t battery, const Vec4 &pos) {
 	pos_ = pos;
 }
 
+/**
+ * @brief Set the drone as flying
+ *
+ */
 void RTStatus::enable() { flying_ = true; }
 
+/**
+ * @brief Set the drone as not flying
+ *
+ */
 void RTStatus::disable() { flying_ = false; }
 
+/**
+ * @brief Debug function to display the drone status
+ *
+ */
 void RTStatus::print() const {
 	std::cout << "Updated data : " << std::endl
 	          << "battery_level: " << battery_ << std::endl
@@ -98,6 +124,11 @@ void RTStatus::print() const {
 	          << std::endl;
 }
 
+/**
+ * @brief Returns the name of the current drone
+ *
+ * @return std::string
+ */
 std::string RTStatus::getName() {
 	std::string shortName;
 	for (size_t i = 0; i < 5; i++) {

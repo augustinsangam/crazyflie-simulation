@@ -25,7 +25,10 @@
 #include <argos3/plugins/robots/generic/control_interface/ci_quadrotor_position_actuator.h>
 
 static uint16_t mainId = 0;
-
+/**
+ * @brief Main controller class for ARGoS simulator
+ *
+ */
 class CCrazyflieSensing : public argos::CCI_Controller {
 private:
 	// 8 ticks per second

@@ -32,3 +32,28 @@ See https://gitlab.com/polytechnique-montr-al/inf3995/20211/equipe-203/crazyflie
 {"type":"land", "data":{"name": "argos_drone_0"}}
 {"type":"land", "data":{"name": "argos_drone_1"}}
 ```
+
+# Documentation generation
+To generate the project's documentation :
+
+* Install Doxygen
+  ```bash
+  git clone https://github.com/doxygen/doxygen.git
+  cd doxygen
+  mkdir build && cd build
+  cmake -G "Unix Makefiles" ..
+  make
+  make install
+  ```
+* Run Doxygen. Make sure you are in the root directory of the project (`/drone`)
+  ```bash
+  doxygen doc/doxygen-config
+  ```
+
+The output can be found in the `html` and `latex` folders located in `doc`.
+
+To generate a PDF :
+```bash
+cd doc/latex
+make pdf
+```
