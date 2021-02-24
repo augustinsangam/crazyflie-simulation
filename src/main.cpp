@@ -31,9 +31,9 @@
 /* Definition of the crazyflie distance sensor */
 #include <argos3/plugins/robots/crazyflie/control_interface/ci_crazyflie_distance_scanner_sensor.h>
 
-static uint16_t mainId = 0;
+static uint16_t mainId = 0; // NOLINT
 
-class CCrazyflieSensing : public argos::CCI_Controller {
+class CCrazyflieSensing : public argos::CCI_Controller { // NOLINT
 private:
 	// 8 ticks per second
 	static constexpr const uint8_t tick_rate_{8};
@@ -42,14 +42,15 @@ private:
 	// 1 pule each n ticks
 	static constexpr const uint_fast8_t tick_pulse_{tick_rate_ / pulse_rate_};
 
+	const uint16_t id_{mainId++};
+
 	uint32_t tick_count_{};
+
 	conn::Conn conn_;
-	RTStatus rt_status_;
-	uint16_t id_ = mainId++;
-	Decoder decoder_;
-	int counter_ = 0;
-	int squareSize_ = 5;
 	brain::Brain brain_;
+	Decoder decoder_;
+	RTStatus rt_status_;
+
 	std::array<argos::CVector3, 4> squareMoves_ = {
 	    argos::CVector3(1, 0, 0.5), argos::CVector3(0, 1, 0.5),
 	    argos::CVector3(-1, 0, 0.5), argos::CVector3(0, -1, 0.5)};
@@ -61,7 +62,7 @@ private:
 	argos::CCI_PositioningSensor *m_pcPos{};
 
 	/* Pointer to the crazyflie distance sensor */
-	argos::CCI_CrazyflieDistanceScannerSensor *m_pcDistance;
+	argos::CCI_CrazyflieDistanceScannerSensor *m_pcDistance{};
 
 	/* Pointer to the battery sensor */
 	argos::CCI_BatterySensor *m_pcBattery{};
@@ -71,9 +72,8 @@ private:
 public:
 	/* Class constructor. */
 	CCrazyflieSensing()
-	    : conn_("localhost", 3995, 32768),
-	      rt_status_("argos_drone_" + std::to_string(mainId)), decoder_(),
-	      m_pcDistance(NULL), brain_() {
+	    : conn_("localhost", 3995), brain_(), decoder_(),
+	      rt_status_("argos_drone_" + std::to_string(mainId)) {
 		std::cout << "drone " << rt_status_.get_name() << " created"
 		          << std::endl;
 	}
@@ -99,7 +99,7 @@ public:
 		const auto &cPos = m_pcPos->GetReading().Position;
 		flow_deck_.init(cPos);
 
-		// TODO : Better logging
+		// TODO: Better logging
 		std::cout << "Init OK" << std::endl;
 	}
 
@@ -108,14 +108,6 @@ public:
 	 * The length of the time step is set in the XML file.
 	 */
 	void ControlStep() override {
-
-		/*if (tick_count_ > 16) {
-		    return;
-		} else if (tick_count_ == 16) {
-		    conn_.terminate();
-		    tick_count_++;
-		    return;
-		}*/
 
 		// Battery
 		const auto &sBatRead = m_pcBattery->GetReading();
