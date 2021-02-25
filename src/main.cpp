@@ -14,6 +14,8 @@
 #include <thread>
 #include <utility>
 
+#include <spdlog/spdlog.h>
+
 /* argos::CCI_Controller */
 #include <argos3/core/control_interface/ci_controller.h>
 /* argos::TConfigurationNode */
@@ -100,7 +102,7 @@ public:
 		flow_deck_.init(cPos);
 
 		// TODO: Better logging
-		std::cout << "Init OK" << std::endl;
+		spdlog::info("Init OK");
 	}
 
 	/*
@@ -158,10 +160,10 @@ public:
 					auto cmd = decoder_.decode(std::move(*msg));
 					if (cmd) {
 						switch (*cmd) {
-						case take_off:
+						case cmd::take_off:
 							brain_.setState(brain::State::take_off);
 							break;
-						case land:
+						case cmd::land:
 							brain_.setState(brain::State::land);
 							break;
 						default:

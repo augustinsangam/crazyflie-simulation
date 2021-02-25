@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.12.4)
+cmake_minimum_required(VERSION 3.16)
 project(Project CXX)
 
 include(CheckCXXCompilerFlag)
@@ -33,11 +33,15 @@ else()
 	set(FPIE "-fPIE")
 endif()
 
+
+find_package(spdlog REQUIRED)
+find_package(taocpp-json REQUIRED)
+
 add_library(controller SHARED)
 target_compile_options(controller PRIVATE "${FPIC}")
-target_compile_definitions(controller PRIVATE "RAPIDJSON_HAS_STDSTRING=1")
 target_include_directories(controller PRIVATE "./include")
 target_link_libraries(controller PRIVATE common)
+target_link_libraries(controller PRIVATE spdlog::spdlog taocpp::json)
 target_sources(controller PRIVATE
 	"./src/conn/Conn.cpp"
 	"./src/Brain.cpp"

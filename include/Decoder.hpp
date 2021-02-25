@@ -6,7 +6,8 @@
 #include <unordered_map>
 #include <vector>
 
-enum cmd_t : int_fast8_t {
+namespace cmd {
+enum T : int_fast8_t {
 	unknown = -1,
 	none,
 	pulse,
@@ -16,14 +17,22 @@ enum cmd_t : int_fast8_t {
 	darken,
 	start_mission
 };
+} // namespace cmd
 
 class Decoder {
 private:
-	const std::unordered_map<std::string, cmd_t> map_;
+	const std::unordered_map<std::string, cmd::T> map_{
+	    {"", cmd::none},
+	    {"pulse", cmd::pulse},
+	    {"takeOff", cmd::take_off},
+	    {"land", cmd::land},
+	    {"lighten", cmd::lighten},
+	    {"darken", cmd::darken},
+	    {"startMission", cmd::start_mission}};
 
 public:
-	static std::string cmd_to_cstr(cmd_t cmd) {
-		if (cmd == cmd_t::unknown) {
+	static std::string cmdo_cstr(cmd::T cmd) {
+		if (cmd == cmd::unknown) {
 			return "unknown";
 		}
 
@@ -34,10 +43,8 @@ public:
 		return types_[static_cast<size_t>(cmd)]; // NOLINT
 	}
 
-	Decoder();
+	Decoder() = default;
 
-	std::optional<cmd_t>
+	std::optional<cmd::T>
 	decode(std::pair<std::unique_ptr<char[]>, std::size_t> &&msg);
-	std::string getName(std::pair<std::unique_ptr<char[]>, std::size_t> &&msg);
-	bool msgValid(std::pair<std::unique_ptr<char[]>, std::size_t> &&msg);
 };
