@@ -2,6 +2,7 @@
 #define FLOWDECK_HPP
 
 #include "CameraData.hpp"
+#include "Vec4.hpp"
 #include <cmath>
 
 #include <argos3/core/utility/math/vector3.h>
