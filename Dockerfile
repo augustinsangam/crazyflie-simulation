@@ -28,8 +28,6 @@ RUN cmake \
 RUN ninja
 RUN touch argos3.1.gz && \
 	ninja install
-RUN ldconfig
-RUN argos3 --version
 
 WORKDIR /vendor/dermesser
 RUN git clone -b v2.5.0 --depth=1 https://github.com/dermesser/libsocket.git
@@ -83,5 +81,6 @@ RUN ninja
 RUN ninja install
 
 WORKDIR /build
+RUN ldconfig
 
 CMD cmake /drone && make && argos3 -c /drone/config.xml
