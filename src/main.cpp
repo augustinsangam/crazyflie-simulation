@@ -4,6 +4,7 @@
 #include "FlowDeck.hpp"
 #include "RTStatus.hpp"
 #include "SensorData.hpp"
+#include "Vec4.hpp"
 #include "conn/Conn.hpp"
 #include <cstdint>
 #include <exception>
@@ -53,10 +54,6 @@ private:
 	Decoder decoder_;
 	RTStatus rt_status_;
 
-	std::array<argos::CVector3, 4> squareMoves_ = {
-	    argos::CVector3(1, 0, 0.5), argos::CVector3(0, 1, 0.5),
-	    argos::CVector3(-1, 0, 0.5), argos::CVector3(0, -1, 0.5)};
-
 	/* Pointer to the position actuator */
 	argos::CCI_QuadRotorPositionActuator *m_pcPropellers{};
 
@@ -74,7 +71,7 @@ private:
 public:
 	/* Class constructor. */
 	CCrazyflieSensing()
-	    : conn_("host.docker.internal", 3995), brain_(), decoder_(),
+	    : conn_("localhost", 3995), brain_(), decoder_(),
 	      rt_status_("argos_drone_" + std::to_string(mainId)) {
 		std::cout << "drone " << rt_status_.get_name() << " created"
 		          << std::endl;
@@ -135,14 +132,17 @@ public:
 		    static_cast<std::uint16_t>((dist_data_it++)->second)};
 
 		auto i = 0;
-		for (auto it = dist_data.begin(); it != dist_data.end(); ++it, ++i)
-			;
-
+		for (auto it = dist_data.begin(); it != dist_data.end(); ++it, ++i) {
+			// std::cout << i << " : " << it->second << std::endl;
+		};
+		std::cout << id_ << " -> (x: " << trunc(position.GetX(), 3)
+		          << " y: " << trunc(position.GetY(), 3)
+		          << " z: " << trunc(position.GetZ(), 3) << ")" << std::endl;
 		// Update drone status
-		rt_status_.update(static_cast<std::float_t>(battery),
-		                  Vec4(static_cast<std::float_t>(position.GetX()),
-		                       static_cast<std::float_t>(position.GetY()),
-		                       static_cast<std::float_t>(position.GetZ())));
+		Vec4 position_vec4 = Vec4(static_cast<std::float_t>(position.GetX()),
+		                          static_cast<std::float_t>(position.GetY()),
+		                          static_cast<std::float_t>(position.GetZ()));
+		rt_status_.update(static_cast<std::float_t>(battery), position_vec4);
 
 		switch (conn_.status()) {
 		case conn::state::plugable:
@@ -189,10 +189,28 @@ public:
 
 		const auto next_move =
 		    brain_.computeNextMove(&camera_data, &sensor_data);
-		m_pcPropellers->SetRelativePosition(
-		    argos::CVector3(next_move.x(), next_move.y(), next_move.z()));
+		if (brain_.getState() != brain::idle) {
+			std::cout << "Next " << next_move.coords.z() << std::endl;
+			if (next_move.relative) {
+				m_pcPropellers->SetRelativePosition(
+				    argos::CVector3(next_move.coords.x(), next_move.coords.y(),
+				                    next_move.coords.z()));
+			} else {
+				m_pcPropellers->SetAbsolutePosition(
+				    argos::CVector3(next_move.coords.x(), next_move.coords.y(),
+				                    next_move.coords.z()));
+			}
+		}
 
 		++tick_count_;
+	}
+
+	std::string trunc(float val, int numDigits) {
+		std::string output = std::to_string(val).substr(0, numDigits + 1);
+		if (output.find('.') == std::string::npos || output.back() == '.') {
+			output.pop_back();
+		}
+		return output;
 	}
 
 	/*

@@ -39,7 +39,7 @@
   <!-- *********************** -->
   <!-- * Arena configuration * -->
   <!-- *********************** -->
-  <arena size="5, 5, 2" center="0,0,0">
+  <arena size="5, 5, 2" center="0,0,1">
 
     <!-- Arena external walls -->
     <box id="wall_north" size="4,0.1,2" movable="false">
