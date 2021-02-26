@@ -129,7 +129,7 @@ void Conn::output_thread(Conn *conn) {
 	}
 }
 
-Conn::Conn(const std::string &host, uint16_t port, std::size_t msg_len)
+Conn::Conn(const std::string &host, std::uint16_t port, std::size_t msg_len)
     : msg_len_{msg_len}, state_{}, sock_{}, addr_{.sin_family = AF_INET,
                                                   .sin_port = ::htons(port)},
       input_thr_(input_thread, this), output_thr_(output_thread, this) {

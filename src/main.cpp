@@ -7,6 +7,7 @@
 #include "Vec4.hpp"
 #include "conn/Conn.hpp"
 #include <cstdint>
+#include <cstdlib>
 #include <exception>
 #include <iostream>
 #include <ostream>
@@ -35,6 +36,11 @@
 #include <argos3/plugins/robots/crazyflie/control_interface/ci_crazyflie_distance_scanner_sensor.h>
 
 static uint16_t mainId = 0; // NOLINT
+
+static std::string get_env(const std::string &var, const std::string &val) {
+	const auto *var_val = std::getenv(var.c_str());
+	return var_val ? var_val : val;
+}
 
 class CCrazyflieSensing : public argos::CCI_Controller { // NOLINT
 private:
@@ -71,7 +77,10 @@ private:
 public:
 	/* Class constructor. */
 	CCrazyflieSensing()
-	    : conn_("localhost", 3995), brain_(), decoder_(),
+	    : conn_(
+	          get_env("HOST", "localhost"),
+	          static_cast<std::uint16_t>(std::stoul(get_env("PORT", "3995")))),
+	      brain_(), decoder_(),
 	      rt_status_("argos_drone_" + std::to_string(mainId)) {
 		std::cout << "drone " << rt_status_.get_name() << " created"
 		          << std::endl;
@@ -107,7 +116,6 @@ public:
 	 * The length of the time step is set in the XML file.
 	 */
 	void ControlStep() override {
-
 		// Battery
 		const auto &battery = m_pcBattery->GetReading().AvailableCharge;
 
