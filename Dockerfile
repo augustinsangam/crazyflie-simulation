@@ -1,4 +1,4 @@
-FROM ubuntu:21.04
+FROM ubuntu:20.10
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update
@@ -8,16 +8,16 @@ RUN apt-get install -y \
 	freeglut3-dev \
 	libc-dev \
 	liblua5.4-dev \
-	libstdc++-11-dev \
-	gcc-11 \
-	g++-11 \
+	libstdc++-10-dev \
+	gcc-10 \
+	g++-10 \
 	git \
 	make \
 	ninja-build \
 	qt5-default \
 	qtwayland5
 
-ENV CC=gcc-11 CXX=g++-11
+ENV CC=gcc-10 CXX=g++-10
 
 WORKDIR /vendor/MISTLab
 RUN git clone -b inf3995 --depth=1 https://github.com/MISTLab/argos3.git
@@ -90,4 +90,5 @@ RUN ninja install
 WORKDIR /build
 RUN ldconfig
 
+ENV HOST=host.docker.internal
 CMD cmake /drone && make && argos3 -c /drone/config.xml
