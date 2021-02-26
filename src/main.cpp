@@ -6,6 +6,8 @@
 #include "SensorData.hpp"
 #include "Vec4.hpp"
 #include "conn/Conn.hpp"
+#include <argos3/core/utility/math/angles.h>
+#include <argos3/core/utility/math/quaternion.h>
 #include <cstdint>
 #include <exception>
 #include <iostream>
@@ -51,6 +53,7 @@ private:
 	brain::Brain brain_;
 	Decoder decoder_;
 	RTStatus rt_status_;
+	double orientation_ = argos::CRadians::PI_OVER_TWO.GetValue();
 
 	/* Pointer to the position actuator */
 	argos::CCI_QuadRotorPositionActuator *m_pcPropellers{};
@@ -71,6 +74,7 @@ public:
 	CCrazyflieSensing()
 	    : conn_("localhost", 3995), brain_(), decoder_(),
 	      rt_status_("argos_drone_" + std::to_string(mainId)) {
+		brain_.setState(brain::take_off);
 		std::cout << "drone " << rt_status_.get_name() << " created"
 		          << std::endl;
 	}
@@ -121,21 +125,20 @@ public:
 		// Read distance sensor
 		// Multi-ranger deck
 		// https://www.bitcraze.io/products/multi-ranger-deck/
-		const auto &dist_data = m_pcDistance->GetLongReadingsMap();
-		auto dist_data_it = dist_data.begin();
-		SensorData sensor_data{
-		    static_cast<std::uint16_t>((dist_data_it++)->second),
-		    static_cast<std::uint16_t>((dist_data_it++)->second),
-		    static_cast<std::uint16_t>((dist_data_it++)->second),
-		    static_cast<std::uint16_t>((dist_data_it++)->second)};
+		auto sDistRead = m_pcDistance->GetReadingsMap();
+		auto iterDistRead = sDistRead.begin();
+		SensorData sensor_data{};
+		if (sDistRead.size() == 4) {
+			sensor_data = {
+			    static_cast<std::uint16_t>((iterDistRead++)->second),
+			    static_cast<std::uint16_t>((iterDistRead++)->second),
+			    static_cast<std::uint16_t>((iterDistRead++)->second),
+			    static_cast<std::uint16_t>((iterDistRead++)->second)};
+		}
 
-		auto i = 0;
-		for (auto it = dist_data.begin(); it != dist_data.end(); ++it, ++i) {
-			// std::cout << i << " : " << it->second << std::endl;
-		};
-		std::cout << id_ << " -> (x: " << trunc(position.GetX(), 3)
-		          << " y: " << trunc(position.GetY(), 3)
-		          << " z: " << trunc(position.GetZ(), 3) << ")" << std::endl;
+		// std::cout << id_ << " -> (x: " << trunc(position.GetX(), 3)
+		//           << " y: " << trunc(position.GetY(), 3)
+		//           << " z: " << trunc(position.GetZ(), 3) << ")" << std::endl;
 		// Update drone status
 		Vec4 position_vec4 = Vec4(static_cast<std::float_t>(position.GetX()),
 		                          static_cast<std::float_t>(position.GetY()),
@@ -184,23 +187,26 @@ public:
 			std::cerr << "connection in an unknown state" << std::endl;
 			break;
 		}
+		++tick_count_;
 
 		const auto next_move =
 		    brain_.computeNextMove(&camera_data, &sensor_data);
-		if (brain_.getState() != brain::idle) {
-			std::cout << "Next " << next_move.coords.z() << std::endl;
-			if (next_move.relative) {
-				m_pcPropellers->SetRelativePosition(
-				    argos::CVector3(next_move.coords.x(), next_move.coords.y(),
-				                    next_move.coords.z()));
+		if (next_move) {
+			std::cout << "next_move (" << next_move->coords.x() << ","
+			          << next_move->coords.y() << "," << next_move->coords.z()
+			          << ")" << std::endl;
+			if (next_move->relative) {
+				m_pcPropellers->SetRelativePosition(argos::CVector3(
+				    next_move->coords.x(), next_move->coords.y(),
+				    next_move->coords.z()));
+				m_pcPropellers->SetRelativeYaw(argos::CRadians(next_move->yaw));
 			} else {
-				m_pcPropellers->SetAbsolutePosition(
-				    argos::CVector3(next_move.coords.x(), next_move.coords.y(),
-				                    next_move.coords.z()));
+				m_pcPropellers->SetAbsolutePosition(argos::CVector3(
+				    next_move->coords.x(), next_move->coords.y(),
+				    next_move->coords.z()));
+				m_pcPropellers->SetAbsoluteYaw(argos::CRadians(next_move->yaw));
 			}
 		}
-
-		++tick_count_;
 	}
 
 	std::string trunc(float val, int numDigits) {
