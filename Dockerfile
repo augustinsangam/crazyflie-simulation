@@ -43,6 +43,7 @@ RUN cmake \
 	-G Ninja \
 	-D CMAKE_BUILD_TYPE=Release \
 	-D CMAKE_POSITION_INDEPENDENT_CODE=ON \
+	-D CMAKE_INSTALL_PREFIX=/usr/local \
 	../libsocket
 RUN ninja
 RUN ninja install
@@ -88,7 +89,7 @@ RUN ninja
 RUN ninja install
 
 WORKDIR /build
-RUN ldconfig
-
+ENV LD_LIBRARY_PATH=/usr/local/lib/argos3
 ENV HOST=host.docker.internal
+
 CMD cmake /drone && make && argos3 -c /drone/config.xml
