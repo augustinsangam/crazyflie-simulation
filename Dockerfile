@@ -1,22 +1,29 @@
-FROM ubuntu:20.04
+FROM ubuntu:21.04
 
-ENV DEBIAN_FRONTEND="noninteractive"
-
+ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update
-
 RUN apt-get install -y \
+	binutils \
 	cmake \
 	freeglut3-dev \
-	gcc \
-	g++ \
+	libc-dev \
+	liblua5.4-dev \
+	libstdc++-11-dev \
+	gcc-11 \
+	g++-11 \
 	git \
 	make \
 	ninja-build \
 	qt5-default \
 	qtwayland5
 
+ENV CC=gcc-11 CXX=g++-11
+
 WORKDIR /vendor/MISTLab
 RUN git clone -b inf3995 --depth=1 https://github.com/MISTLab/argos3.git
+RUN apt-get install -y curl patch
+RUN curl https://github.com/ilpincy/argos3/commit/d954c4b1797b830b3f7a703e22c19d2d447d2747.patch \
+	| patch -d argos3 -p 1
 WORKDIR /vendor/MISTLab/argos3-build
 RUN cmake \
 	-G Ninja \
