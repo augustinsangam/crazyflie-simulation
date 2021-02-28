@@ -6,22 +6,8 @@
 #include <iostream>
 #include <utility>
 
-#include <rapidjson/encodings.h>
-#include <rapidjson/writer.h>
+#include <tao/json.hpp>
 
-class StringHolder {
-private:
-	std::string *s_;
-
-public:
-	using Ch = rapidjson::UTF8<>::Ch;
-
-	explicit StringHolder(std::string *s) : s_(s) { s_->reserve(4096); }
-	std::size_t Size() const { return s_->length(); }
-	void Put(char c) { s_->push_back(c); }
-	void Clear() { s_->clear(); }
-	void Flush() {}
-};
 /**
  * @brief Construct a new RTStatus::RTStatus object
  *
@@ -36,51 +22,19 @@ RTStatus::RTStatus(std::string name)
  * @return std::string serialized pulse object
  */
 std::string RTStatus::encode() {
-	std::string s;
-	StringHolder sh(&s);
-	rapidjson::Writer<StringHolder> w(sh);
+	const tao::json::value pulse = {
+	    {"type", "pulse"},
+	    {"data",
+	     {{"timestamp", 0},
+	      {"name", name_},
+	      {"flying", flying_},
+	      {"battery", battery_},
+	      {"speed", speed_},
+	      {"position", tao::json::value::array({pos_.x(), pos_.y(), pos_.z()})},
+	      {"ledOn", false},
+	      {"real", false}}}};
 
-	w.StartObject();
-
-	w.String("type");
-	w.String("pulse");
-
-	w.String("data");
-	w.StartObject();
-
-	w.String("timestamp");
-	w.Int64(std::time(nullptr));
-
-	w.String("name");
-	w.String(name_);
-
-	w.String("flying");
-	w.Bool(flying_);
-
-	w.String("battery");
-	w.Double(battery_);
-
-	w.String("speed");
-	w.Double(speed_);
-
-	w.String("position");
-	w.StartArray();
-	w.Double(pos_.x());
-	w.Double(pos_.y());
-	w.Double(pos_.z());
-	w.EndArray();
-
-	w.String("ledOn");
-	w.Bool(false);
-
-	w.String("real");
-	w.Bool(false);
-
-	w.EndObject();
-
-	w.EndObject();
-
-	return s;
+	return tao::json::to_string(pulse);
 }
 
 /**

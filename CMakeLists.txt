@@ -1,5 +1,5 @@
-cmake_minimum_required(VERSION 3.12.4)
-project(Project CXX)
+cmake_minimum_required(VERSION 3.16)
+project(drone CXX)
 
 include(CheckCXXCompilerFlag)
 
@@ -13,6 +13,7 @@ if(NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "Debug")
 	target_compile_options(common INTERFACE
 		"-Wcast-qual"
 		"-Wconversion"
+		"-Wdouble-promotion"
 		"-Wformat=2"
 		"-Wmissing-declarations"
 		"-Wshadow"
@@ -20,24 +21,28 @@ if(NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "Debug")
 	target_compile_options(common INTERFACE
 		"-Wno-missing-field-initializers")
 endif()
-check_cxx_compiler_flag("-fpic" IS_MINIMAL_FPIC_SUPPORTED)
-if(IS_MINIMAL_FPIC_SUPPORTED)
+check_cxx_compiler_flag("-fpic" MINIMAL_FPIC_SUPPORTED)
+if(MINIMAL_FPIC_SUPPORTED)
 	set(FPIC "-fpic")
 else()
 	set(FPIC "-fPIC")
 endif()
-check_cxx_compiler_flag("-fpie" IS_MINIMAL_FPIE_SUPPORTED)
-if (IS_MINIMAL_FPIE_SUPPORTED)
+check_cxx_compiler_flag("-fpie" MINIMAL_FPIE_SUPPORTED)
+if (MINIMAL_FPIE_SUPPORTED)
 	set(FPIE "-fpie")
 else()
 	set(FPIE "-fPIE")
 endif()
 
+
+find_package(spdlog REQUIRED)
+find_package(taocpp-json REQUIRED)
+
 add_library(controller SHARED)
 target_compile_options(controller PRIVATE "${FPIC}")
-target_compile_definitions(controller PRIVATE "RAPIDJSON_HAS_STDSTRING=1")
 target_include_directories(controller PRIVATE "./include")
 target_link_libraries(controller PRIVATE common)
+target_link_libraries(controller PRIVATE spdlog::spdlog taocpp::json)
 target_sources(controller PRIVATE
 	"./src/conn/Conn.cpp"
 	"./src/Brain.cpp"

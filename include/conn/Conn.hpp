@@ -41,7 +41,8 @@ class Conn { // NOLINT
 	static void output_thread(Conn *conn);
 
 public:
-	Conn(const std::string &host, uint16_t port, std::size_t msg_len = 65536);
+	Conn(const std::string &host, std::uint16_t port,
+	     std::size_t msg_len = 65536);
 
 	~Conn();
 

@@ -6,7 +6,7 @@ case "$1" in
 		docker container stop drone
 		docker container rm drone
 	fi
-	docker image build -q -t drone .
+	docker image build -t drone .
 	DANGLING_IMAGES=$(docker images -q --filter dangling=true)
 	case "$DANGLING_IMAGES" in
 	'') ;;
