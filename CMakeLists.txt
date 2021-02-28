@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(Project CXX)
+project(drone CXX)
 
 include(CheckCXXCompilerFlag)
 
@@ -13,6 +13,7 @@ if(NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "Debug")
 	target_compile_options(common INTERFACE
 		"-Wcast-qual"
 		"-Wconversion"
+		"-Wdouble-promotion"
 		"-Wformat=2"
 		"-Wmissing-declarations"
 		"-Wshadow"

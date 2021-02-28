@@ -2,19 +2,24 @@ FROM ubuntu:20.10
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update
+# toolchain
 RUN apt-get install -y \
 	binutils \
-	cmake \
-	freeglut3-dev \
 	libc-dev \
-	liblua5.4-dev \
 	libstdc++-10-dev \
 	gcc-10 \
-	g++-10 \
+	g++-10
+# tools
+RUN apt-get install -y \
+	cmake \
 	git \
 	make \
-	ninja-build \
-	qt5-default \
+	ninja-build
+# libraries
+RUN apt-get install -y \
+	freeglut3-dev \
+	liblua5.4-dev \
+	qtbase5-dev \
 	qtwayland5
 
 ENV CC=gcc-10 CXX=g++-10
