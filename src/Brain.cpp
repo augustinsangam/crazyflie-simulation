@@ -1,5 +1,6 @@
 #include "Brain.hpp"
 #include "Vec4.hpp"
+#include <argos3/core/utility/math/angles.h>
 #include <bits/stdint-uintn.h>
 
 namespace brain {
@@ -26,23 +27,24 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 	float_t y = cd->delta_y;
 	float_t z = cd->z;
 
-	uint16_t sensor_wall_distance_thresh = 15; // mm ?
+	uint16_t sensor_wall_distance_thresh = 30; // mm ?
 	double PI = 3.1415927;
-	std::cout << "front: " << sd->front << " left: " << sd->left
-	          << " back: " << sd->back << " right: " << sd->right << std::endl;
+	std::cout << "f: " << sd->front << " l: " << sd->left << " b: " << sd->back
+	          << " r: " << sd->right << std::endl;
 
 	/**
 	 * @brief State machine
 	 * For now : idle -> take_off -> do_squares -> land -> idle
 	 */
-	NextMove nm{Vec4(0), true, 0};
+	NextMove nm{Vec4(0), true, desiredAngle_};
 	bool overwrite = false;
 
 	switch (state_) {
 
 	case State::idle:
 		std::cout << "Idle" << std::endl;
-		nm = {Vec4(x, y, z), false, 0};
+		nm = {Vec4(0), true, desiredAngle_};
+		// state_ = dodge;
 		break;
 
 	case State::take_off:
@@ -50,7 +52,7 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 			state_ = State::auto_pilot;
 		}
 		std::cout << "Take Off" << std::endl;
-		nm = {Vec4(0, 0, 0.5F), true, 0};
+		nm = {Vec4(0, 0, 0.5F), true, desiredAngle_};
 		break;
 
 	case State::orient:
@@ -58,13 +60,41 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 		state_ = auto_pilot;
 		break;
 
+	case State::stabilize:
+		std::cout << "Stabilize" << std::endl;
+		if (++counter_ > 50) {
+			nm = {Vec4(x, y, z), false, cd->yaw};
+			state_ = afterStab_;
+			counter_ = 0;
+		}
+		// std::cout << cd->yaw << " -> " << desiredAngle_ << std::endl;
+		// if (desiredAngle_ - 0.001 < cd->yaw &&
+		//     cd->yaw < desiredAngle_ + 0.001) {
+		// 	state_ = dodge;
+		// }
+		break;
+
 	case State::dodge:
 		std::cout << "dodge" << std::endl;
-		if (sd->right > sensor_wall_distance_thresh) {
-			nm = {Vec4(0), true, static_cast<float_t>(PI / 12)};
-			overwrite = true;
+		if (!dodging_) {
+			dodging_ = true;
+			desiredAngle_ = cd->yaw + PI / 12.0F;
+			std::cout << "desiredAngle_ " << desiredAngle_ << std::endl;
+			nm = {Vec4(0), true, static_cast<float_t>(PI / 12.0F)};
+			counter_ = 0;
+			break;
 		}
-		state_ = auto_pilot;
+		if (++counter_ < 30) {
+			nm = {Vec4(x, y, z), false, cd->yaw};
+			dodging_ = true;
+			break;
+		}
+		dodging_ = false;
+		if (sd->right < sensor_wall_distance_thresh || sd->front > 100) {
+			state_ = auto_pilot;
+			dodging_ = false;
+			break;
+		}
 		break;
 
 	case State::land:
@@ -72,18 +102,23 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 			state_ = State::idle;
 		}
 		std::cout << "Land" << std::endl;
-		nm = {Vec4(0, 0, 0), false, 0};
+		nm = {Vec4(0, 0, 0), false, desiredAngle_};
 		break;
 
 	case State::auto_pilot:
-		std::cout << "auto_pilot" << std::endl;
 		if (sd->front < sensor_wall_distance_thresh) {
+			// this will stop the drone
+			nm = {Vec4(x, y, z), false, cd->yaw};
+			// afterStab_ = dodge;
 			state_ = dodge;
+			break;
 		}
+		std::cout << "auto_pilot" << std::endl;
 		nm = {Vec4(0, -0.05F, 0), true, 0};
 		// if (cd->delta_x > -0.5 && cd->delta_y > -0.5) {
 		overwrite = true;
 		// }
+
 		break;
 
 		/* case State::do_squares:
@@ -105,7 +140,7 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 		    return {nextMove, true};*/
 	}
 	if (nm.coords == lastMove_.coords && nm.relative == lastMove_.relative &&
-	    !overwrite) {
+	    nm.yaw == lastMove_.yaw && !overwrite) {
 		return std::nullopt;
 	}
 	lastMove_ = nm;

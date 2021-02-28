@@ -17,11 +17,15 @@ public:
 		initial_pos_ = init_position;
 	}
 
-	CameraData getInitPositionDelta(const argos::CVector3 &c_pos) {
+	CameraData getInitPositionDelta(const argos::CVector3 &position,
+	                                const argos::CQuaternion &orientation) {
+		argos::CRadians z_angle, y_angle, x_angle;
+		orientation.ToEulerAngles(z_angle, y_angle, x_angle);
 		return CameraData{
-		    static_cast<std::float_t>(c_pos.GetX() - initial_pos_.GetX()),
-		    static_cast<std::float_t>(c_pos.GetY() - initial_pos_.GetY()),
-		    static_cast<std::float_t>(c_pos.GetZ())};
+		    static_cast<std::float_t>(position.GetX() - initial_pos_.GetX()),
+		    static_cast<std::float_t>(position.GetY() - initial_pos_.GetY()),
+		    static_cast<std::float_t>(position.GetZ()),
+		    static_cast<float_t>(z_angle.GetValue())};
 	}
 };
 

@@ -4,6 +4,7 @@
 #include "CameraData.hpp"
 #include "SensorData.hpp"
 #include "Vec4.hpp"
+#include <cmath>
 #include <iostream>
 #include <optional>
 
@@ -15,11 +16,22 @@ struct NextMove {
 	float_t yaw;
 };
 
-enum State { idle, take_off, land, do_squares, auto_pilot, dodge, orient };
+enum State {
+	idle,
+	take_off,
+	land,
+	do_squares,
+	auto_pilot,
+	dodge,
+	orient,
+	stabilize
+};
 
 class Brain {
 
 	State state_{};
+	State afterStab_{};
+	bool dodging_;
 
 	const CameraData *cd_{};
 	const SensorData *sd_{};
@@ -29,6 +41,7 @@ class Brain {
 	                                    Vec4(-0.1F, 0, 0), Vec4(0, -0.1F, 0)};
 	int counter_ = 0;
 	int squareSize_ = 50;
+	float_t desiredAngle_ = 0;
 
 	void land();
 	void takeOff();

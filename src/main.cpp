@@ -115,10 +115,12 @@ public:
 
 		// Position
 		const auto &position = m_pcPos->GetReading().Position;
+		const auto &orientation = m_pcPos->GetReading().Orientation;
 
 		// FlowDeck v2
 		// https://www.bitcraze.io/products/flow-deck-v2/
-		const auto camera_data = flow_deck_.getInitPositionDelta(position);
+		const auto camera_data =
+		    flow_deck_.getInitPositionDelta(position, orientation);
 
 		// Look here for documentation on the distance sensor:
 		// /root/argos3/src/plugins/robots/crazyflie/control_interface/ci_crazyflie_distance_scanner_sensor.h
@@ -136,9 +138,9 @@ public:
 			    static_cast<std::uint16_t>((iterDistRead++)->second)};
 		}
 
-		// std::cout << id_ << " -> (x: " << trunc(position.GetX(), 3)
-		//           << " y: " << trunc(position.GetY(), 3)
-		//           << " z: " << trunc(position.GetZ(), 3) << ")" << std::endl;
+		std::cout << id_ << " -> (x: " << trunc(position.GetX(), 3)
+		          << " y: " << trunc(position.GetY(), 3)
+		          << " z: " << trunc(position.GetZ(), 3) << ")" << std::endl;
 		// Update drone status
 		Vec4 position_vec4 = Vec4(static_cast<std::float_t>(position.GetX()),
 		                          static_cast<std::float_t>(position.GetY()),
@@ -194,7 +196,8 @@ public:
 		if (next_move) {
 			std::cout << "next_move (" << next_move->coords.x() << ","
 			          << next_move->coords.y() << "," << next_move->coords.z()
-			          << ")" << std::endl;
+			          << ")"
+			          << " yaw " << next_move->yaw << std::endl;
 			if (next_move->relative) {
 				m_pcPropellers->SetRelativePosition(argos::CVector3(
 				    next_move->coords.x(), next_move->coords.y(),

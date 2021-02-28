@@ -13,6 +13,7 @@ public:
 	std::float_t delta_x, delta_y;
 	// TODO: std::uint16_t in mm
 	std::float_t z;
+	std::float_t yaw;
 };
 
 #endif /* CAMERADATA_HPP */
