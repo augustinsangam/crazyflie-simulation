@@ -148,9 +148,9 @@ public:
 			    static_cast<std::uint16_t>((iterDistRead++)->second)};
 		}
 
-		std::cout << id_ << " -> (x: " << trunc(position.GetX(), 3)
-		          << " y: " << trunc(position.GetY(), 3)
-		          << " z: " << trunc(position.GetZ(), 3) << ")" << std::endl;
+		// spdlog::info(id_ + " -> (x: " + trunc(position.GetX(), 3) +
+		//              " y: " + trunc(position.GetY(), 3) +
+		//              " z: " + trunc(position.GetZ(), 3) + ")");
 		// Update drone status
 		Vec4 position_vec4 = Vec4(static_cast<std::float_t>(position.GetX()),
 		                          static_cast<std::float_t>(position.GetY()),
@@ -204,10 +204,10 @@ public:
 		const auto next_move =
 		    brain_.computeNextMove(&camera_data, &sensor_data);
 		if (next_move) {
-			std::cout << "next_move (" << next_move->coords.x() << ","
-			          << next_move->coords.y() << "," << next_move->coords.z()
-			          << ")"
-			          << " yaw " << next_move->yaw << std::endl;
+			spdlog::info("next_move (" + std::to_string(next_move->coords.x()) +
+			             "," + std::to_string(next_move->coords.y()) + "," +
+			             std::to_string(next_move->coords.z()) + ")" + " yaw " +
+			             std::to_string(next_move->yaw));
 			if (next_move->relative) {
 				m_pcPropellers->SetRelativePosition(argos::CVector3(
 				    next_move->coords.x(), next_move->coords.y(),

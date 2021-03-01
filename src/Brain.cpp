@@ -2,6 +2,8 @@
 #include "Vec4.hpp"
 #include <argos3/core/utility/math/angles.h>
 #include <bits/stdint-uintn.h>
+#include <spdlog/spdlog.h>
+#include <string>
 
 namespace brain {
 
@@ -29,8 +31,9 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 
 	uint16_t sensor_wall_distance_thresh = 30; // mm ?
 	double PI = 3.1415927;
-	std::cout << "f: " << sd->front << " l: " << sd->left << " b: " << sd->back
-	          << " r: " << sd->right << std::endl;
+	spdlog::info(
+	    "f: " + std::to_string(sd->front) + " l: " + std::to_string(sd->left) +
+	    " b: " + std::to_string(sd->back) + " r: " + std::to_string(sd->right));
 
 	/**
 	 * @brief State machine
@@ -42,7 +45,7 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 	switch (state_) {
 
 	case State::idle:
-		std::cout << "Idle" << std::endl;
+		spdlog::info("Idle");
 		nm = {Vec4(0), true, desiredAngle_};
 		// state_ = dodge;
 		break;
@@ -51,7 +54,7 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 		if (cd->z >= 0.5) {
 			state_ = State::auto_pilot;
 		}
-		std::cout << "Take Off" << std::endl;
+		spdlog::info("Take Off");
 		nm = {Vec4(0, 0, 0.5F), true, desiredAngle_};
 		break;
 
@@ -61,13 +64,13 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 		break;
 
 	case State::stabilize:
-		std::cout << "Stabilize" << std::endl;
+		spdlog::info("Stabilize");
 		if (++counter_ > 50) {
 			nm = {Vec4(x, y, z), false, cd->yaw};
 			state_ = afterStab_;
 			counter_ = 0;
 		}
-		// std::cout << cd->yaw << " -> " << desiredAngle_ << std::endl;
+		// spdlog::info(cd->yaw << " -> " << desiredAngle_);
 		// if (desiredAngle_ - 0.001 < cd->yaw &&
 		//     cd->yaw < desiredAngle_ + 0.001) {
 		// 	state_ = dodge;
@@ -75,11 +78,11 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 		break;
 
 	case State::dodge:
-		std::cout << "dodge" << std::endl;
+		spdlog::info("dodge");
 		if (!dodging_) {
 			dodging_ = true;
 			desiredAngle_ = cd->yaw + PI / 12.0F;
-			std::cout << "desiredAngle_ " << desiredAngle_ << std::endl;
+			spdlog::info("desiredAngle_ " + std::to_string(desiredAngle_));
 			nm = {Vec4(0), true, static_cast<float_t>(PI / 12.0F)};
 			counter_ = 0;
 			break;
@@ -101,7 +104,7 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 		if (cd->z - 0.1 < 0.1F) {
 			state_ = State::idle;
 		}
-		std::cout << "Land" << std::endl;
+		spdlog::info("Land");
 		nm = {Vec4(0, 0, 0), false, desiredAngle_};
 		break;
 
@@ -113,7 +116,7 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 			state_ = dodge;
 			break;
 		}
-		std::cout << "auto_pilot" << std::endl;
+		spdlog::info("auto_pilot");
 		nm = {Vec4(0, -0.05F, 0), true, 0};
 		// if (cd->delta_x > -0.5 && cd->delta_y > -0.5) {
 		overwrite = true;
