@@ -85,7 +85,7 @@ public:
 	          static_cast<std::uint16_t>(std::stoul(get_env("PORT", "3995")))),
 	      brain_(id_), decoder_(),
 	      rt_status_("argos_drone_" + std::to_string(mainId)) {
-		brain_.setState(brain::take_off);
+		brain_.setState(brain::idle);
 		std::cout << "drone " << rt_status_.get_name() << " created"
 		          << std::endl;
 	}
@@ -183,9 +183,11 @@ public:
 						switch (*cmd) {
 						case cmd::take_off:
 							brain_.setState(brain::State::take_off);
+							rt_status_.enable();
 							break;
 						case cmd::land:
 							brain_.setState(brain::State::land);
+							rt_status_.disable();
 							break;
 						default:
 							break;
@@ -220,7 +222,6 @@ public:
 				m_pcPropellers->SetRelativePosition(argos::CVector3(
 				    next_move->coords.x(), next_move->coords.y(),
 				    next_move->coords.z()));
-				// m_pcPropellers->SetRelativeYaw(argos::CRadians(next_move->yaw));
 			} else {
 				m_pcPropellers->SetAbsolutePosition(argos::CVector3(
 				    next_move->coords.x(), next_move->coords.y(),
