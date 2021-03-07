@@ -83,7 +83,7 @@ public:
 	    : conn_(
 	          get_env("HOST", "localhost"),
 	          static_cast<std::uint16_t>(std::stoul(get_env("PORT", "3995")))),
-	      brain_(), decoder_(),
+	      brain_(id_), decoder_(),
 	      rt_status_("argos_drone_" + std::to_string(mainId)) {
 		brain_.setState(brain::take_off);
 		std::cout << "drone " << rt_status_.get_name() << " created"
@@ -109,9 +109,16 @@ public:
 		    "crazyflie_distance_scanner");
 
 		const auto &cPos = m_pcPos->GetReading().Position;
-		flow_deck_.init(cPos);
 
-		// TODO: Better logging
+		flow_deck_.init(cPos);
+		brain_.setInitialPosition(Vec4(static_cast<float_t>(cPos.GetX()),
+		                               static_cast<float_t>(cPos.GetY()),
+		                               static_cast<float_t>(cPos.GetZ())));
+
+		spdlog::info("argos_drone_" + std::to_string(id_) +
+		             " init position: (x: " + std::to_string(cPos.GetX()) +
+		             " y: " + std::to_string(cPos.GetY()) +
+		             " z: " + std::to_string(cPos.GetZ()) + ")");
 		spdlog::info("Init OK");
 	}
 
@@ -148,9 +155,10 @@ public:
 			    static_cast<std::uint16_t>((iterDistRead++)->second)};
 		}
 
-		// spdlog::info(id_ + " -> (x: " + trunc(position.GetX(), 3) +
-		//              " y: " + trunc(position.GetY(), 3) +
-		//              " z: " + trunc(position.GetZ(), 3) + ")");
+		// spdlog::info(std::to_string(id_) +
+		//              " -> (x: " + std::to_string(position.GetX()) +
+		//              " y: " + std::to_string(position.GetY()) +
+		//              " z: " + std::to_string(position.GetZ()) + ")");
 		// Update drone status
 		Vec4 position_vec4 = Vec4(static_cast<std::float_t>(position.GetX()),
 		                          static_cast<std::float_t>(position.GetY()),
@@ -212,7 +220,7 @@ public:
 				m_pcPropellers->SetRelativePosition(argos::CVector3(
 				    next_move->coords.x(), next_move->coords.y(),
 				    next_move->coords.z()));
-				m_pcPropellers->SetRelativeYaw(argos::CRadians(next_move->yaw));
+				// m_pcPropellers->SetRelativeYaw(argos::CRadians(next_move->yaw));
 			} else {
 				m_pcPropellers->SetAbsolutePosition(argos::CVector3(
 				    next_move->coords.x(), next_move->coords.y(),
