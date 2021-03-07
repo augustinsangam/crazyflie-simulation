@@ -28,8 +28,8 @@ x11docker -it --hostdisplay --user=RETAIN -- --network host -- --privileged argo
 ## [Debug commands]
 See https://gitlab.com/polytechnique-montr-al/inf3995/20211/equipe-203/crazyflie-project/-/blob/master/communication/protocols.md
 ```json
-{"type":"takeOff", "data":{"name": "argos_drone_0"}}
-{"type":"takeOff", "data":{"name": "argos_drone_1"}}
+{"type":"startMission", "data":{"name": "argos_drone_0"}}
+{"type":"startMission", "data":{"name": "argos_drone_1"}}
 {"type":"land", "data":{"name": "argos_drone_0"}}
 {"type":"land", "data":{"name": "argos_drone_1"}}
 ```

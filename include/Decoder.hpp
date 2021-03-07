@@ -11,11 +11,10 @@ enum T : int_fast8_t {
 	unknown = -1,
 	none,
 	pulse,
-	take_off,
+	start_mission,
 	land,
 	lighten,
 	darken,
-	start_mission
 };
 } // namespace cmd
 
@@ -24,7 +23,7 @@ private:
 	const std::unordered_map<std::string, cmd::T> map_{
 	    {"", cmd::none},
 	    {"pulse", cmd::pulse},
-	    {"takeOff", cmd::take_off},
+	    {"startMission", cmd::start_mission},
 	    {"land", cmd::land},
 	    {"lighten", cmd::lighten},
 	    {"darken", cmd::darken},
@@ -37,7 +36,7 @@ public:
 		}
 
 		std::vector<std::string> types_{
-		    "",        "pulse",  "takeOff",     "land",
+		    "",        "pulse",  "startMission", "land",
 		    "lighten", "darken", "startMission"};
 
 		return types_[static_cast<size_t>(cmd)]; // NOLINT

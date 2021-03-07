@@ -181,7 +181,7 @@ public:
 					auto cmd = decoder_.decode(std::move(*msg));
 					if (cmd) {
 						switch (*cmd) {
-						case cmd::take_off:
+						case cmd::start_mission:
 							brain_.setState(brain::State::take_off);
 							rt_status_.enable();
 							break;
@@ -214,10 +214,11 @@ public:
 		const auto next_move =
 		    brain_.computeNextMove(&camera_data, &sensor_data);
 		if (next_move) {
-			spdlog::info("next_move (" + std::to_string(next_move->coords.x()) +
-			             "," + std::to_string(next_move->coords.y()) + "," +
-			             std::to_string(next_move->coords.z()) + ")" + " yaw " +
-			             std::to_string(next_move->yaw));
+			// spdlog::info("next_move (" +
+			// std::to_string(next_move->coords.x()) +
+			//              "," + std::to_string(next_move->coords.y()) + "," +
+			//              std::to_string(next_move->coords.z()) + ")" + " yaw
+			//              " + std::to_string(next_move->yaw));
 			if (next_move->relative) {
 				m_pcPropellers->SetRelativePosition(argos::CVector3(
 				    next_move->coords.x(), next_move->coords.y(),
