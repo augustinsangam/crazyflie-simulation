@@ -13,7 +13,7 @@
   <!-- ************************* -->
   <framework>
     <system threads="0" />
-    <experiment length="0" ticks_per_second="8" random_seed="123" />
+    <experiment length="0" ticks_per_second="8" random_seed="919" />
   </framework>
 
   <!-- *************** -->
@@ -28,6 +28,7 @@
       <sensors>
         <positioning implementation="default" />
         <battery implementation="default" />
+        <crazyflie_distance_scanner implementation="rot_z_only" show_rays="true" />
       </sensors>
       <params></params>
     </crazyflie_sensing_controller>
@@ -38,8 +39,9 @@
   <!-- *********************** -->
   <!-- * Arena configuration * -->
   <!-- *********************** -->
-  <arena size="5, 5, 2" center="0,0,0">
+  <arena size="5, 5, 2" center="0,0,1">
 
+    <!-- Arena external walls -->
     <box id="wall_north" size="4,0.1,2" movable="false">
       <body position="0,2,0" orientation="0,0,0" />
     </box>
@@ -52,17 +54,93 @@
     <box id="wall_west" size="0.1,4,2" movable="false">
       <body position="-2,0,0" orientation="0,0,0" />
     </box>
-    <crazyflie id="s1">
-      <body position="0,0,0" orientation="0,0,0" />
-      <controller config="ssc"/>
+
+    <!-- Drones -->
+    <crazyflie id="argos_drone_0">
+      <body position="0,0,0" orientation="45,0,0" />
+      <controller config="ssc" />
       <battery model="time_motion" delta="1e-3" pos_delta="1e-3" orient_delta="1e-3" />
     </crazyflie>
-    <crazyflie id="s2">
-      <body position="0.1,0.1,0" orientation="0,0,0" />
-      <controller config="ssc"/>
+    <crazyflie id="argos_drone_1">
+      <body position="0,0,0" orientation="135,0,0" />
+      <controller config="ssc" />
+      <battery model="time_motion" delta="1e-3" pos_delta="1e-3" orient_delta="1e-3" />
+    </crazyflie>
+    <crazyflie id="argos_drone_2">
+      <body position="0,0,0" orientation="225,0,0" />
+      <controller config="ssc" />
+      <battery model="time_motion" delta="1e-3" pos_delta="1e-3" orient_delta="1e-3" />
+    </crazyflie>
+    <crazyflie id="argos_drone_3">
+      <body position="0,0,0" orientation="315,0,0" />
+      <controller config="ssc" />
       <battery model="time_motion" delta="1e-3" pos_delta="1e-3" orient_delta="1e-3" />
     </crazyflie>
 
+
+    <!-- Arena test walls -->
+    <!-- <box id="wall_north_d" size="0.3,0.1,2" movable="false">
+      <body position="0,0.5,0" orientation="0,0,0" />
+    </box>
+    <box id="wall_south_d" size="0.3,0.1,2" movable="false">
+      <body position="0,-0.5,0" orientation="0,0,0" />
+    </box>
+    <box id="wall_east_d" size="0.1,0.3,2" movable="false">
+      <body position="0.5,0,0" orientation="0,0,0" />
+    </box>
+    <box id="wall_west_d" size="0.1,0.3,2" movable="false">
+      <body position="-0.5,0,0" orientation="0,0,0" />
+    </box>
+    <box id="wall_1" size="0.1,1,2" movable="false">
+      <body position="-1,1,0" orientation="0,0,0" />
+    </box>
+    <box id="wall_2" size="0.1,1,2" movable="false">
+      <body position="1,-1,0" orientation="90,0,0" />
+    </box>
+    <box id="wall_3" size="0.1,1,2" movable="false">
+      <body position="-1,-1,0" orientation="0,0,0" />
+    </box>
+    <box id="wall_4" size="0.1,1,2" movable="false">
+      <body position="1,1,0" orientation="0,0,0" />
+    </box> -->
+
+
+    <!-- Obstacles : walls, boxes and cylinders. -->
+    <distribute>
+      <position method="uniform" min="-2,-2,0" max="2,2,0" />
+      <orientation method="uniform" min="0,0,0" max="360,0,0" />
+      <entity quantity="5" max_trials="100">
+        <box id="wall_s" size="0.6,0.01,2" movable="false" />
+      </entity>
+    </distribute>
+    <distribute>
+      <position method="uniform" min="-2,-2,0" max="2,2,0" />
+      <orientation method="constant" values="90,0,0" />
+      <entity quantity="2" max_trials="100">
+        <box id="wall_m" size="1,0.01,2" movable="false" />
+      </entity>
+    </distribute>
+    <distribute>
+      <position method="uniform" min="-2,-2,0" max="2,2,0" />
+      <orientation method="uniform" min="0,0,0" max="360,0,0" />
+      <entity quantity="1" max_trials="100">
+        <box id="wall_l" size="1.5,0.01,2" movable="false" />
+      </entity>
+    </distribute>
+    <distribute>
+      <position method="uniform" min="-2,-2,0" max="2,2,0" />
+      <orientation method="uniform" min="0,0,0" max="360,0,0" />
+      <entity quantity="2" max_trials="100">
+        <box id="box" size="0.4,0.4,1" movable="false" />
+      </entity>
+    </distribute>
+    <distribute>
+      <position method="uniform" min="-2,-2,0" max="2,2,0" />
+      <orientation method="constant" values="0,0,0" />
+      <entity quantity="2" max_trials="200">
+        <cylinder id="cylinder" height="1" radius="0.2" movable="false" />
+      </entity>
+    </distribute>
   </arena>
 
   <!-- ******************* -->
@@ -88,7 +166,7 @@
     <qt-opengl>
       <camera>
         <placements>
-          <placement index="0" position="2,0,4" look_at="0,0,0" up="-1,0,0" lens_focal_length="20" />
+          <placement index="0" position="0,0,5" look_at="0,0,0" up="-1,0,0" lens_focal_length="30" />
         </placements>
       </camera>
     </qt-opengl>

@@ -4,10 +4,10 @@
   "recommendations": [
     "EditorConfig.EditorConfig",
     "Gruntfuggly.todo-tree",
+    "cschlosser.doxdocgen",
     "llvm-vs-code-extensions.vscode-clangd",
     "ms-vscode.cmake-tools",
     "twxs.cmake",
-    "webfreak.debug",
-    "AppulateInc.filewatcher"
+    "webfreak.debug"
   ]
 }

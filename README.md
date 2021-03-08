@@ -1,8 +1,9 @@
-# Drone
+# Drone - ARGoS3
 
-Drone firmware
+This repository stores the code that defines the drone behaviour in the ARGoS3
+simulator.
 
-# Launch argos simulation
+## Launch argos simulation
 
 ```bash
 # Build
@@ -16,7 +17,7 @@ make
 argos3 -c ../config.xml
 ```
 
-# Docker
+## Docker
 ```bash
 # Build
 docker build -t argos3-sim .
@@ -24,11 +25,49 @@ docker build -t argos3-sim .
 x11docker -it --hostdisplay --user=RETAIN -- --network host -- --privileged argos3-sim argos3 -c /drone/config.xml
 ```
 
-# [Debug commands]
+## [Debug commands]
 See https://gitlab.com/polytechnique-montr-al/inf3995/20211/equipe-203/crazyflie-project/-/blob/master/communication/protocols.md
 ```json
-{"type":"takeOff", "data":{"name": "argos_drone_0"}}
-{"type":"takeOff", "data":{"name": "argos_drone_1"}}
+{"type":"startMission", "data":{"name": "argos_drone_0"}}
+{"type":"startMission", "data":{"name": "argos_drone_1"}}
 {"type":"land", "data":{"name": "argos_drone_0"}}
 {"type":"land", "data":{"name": "argos_drone_1"}}
+```
+
+## Documentation generation
+To generate the project's documentation :
+
+* Install Doxygen
+  ```bash
+  git clone https://github.com/doxygen/doxygen.git
+  cd doxygen
+  mkdir build && cd build
+  cmake -G "Unix Makefiles" ..
+  make
+  make install
+  ```
+* Install the recommended extension in VSCode (Name: Doxygen Documentation Generator https://marketplace.visualstudio.com/items?itemName=cschlosser.doxdocgen)
+
+* Once in a while, run Doxygen. Make sure you are in the root directory of the project (`/drone`)
+  ```bash
+  doxygen doc/doxygen-config
+  ```
+
+  The output can be found in the `latex` folders located in `doc`.
+
+  To generate a PDF :
+  ```bash
+  cd doc/latex
+  make pdf
+  ```
+
+Example of a docstring :
+```C++
+/**
+ * @brief Updates the status of the drone (battery, position, and speed)
+ *
+ * @param battery battery percentage
+ * @param pos drone position in the simulation
+ */
+void RTStatus::update(std::float_t battery, const Vec4 &pos);
 ```

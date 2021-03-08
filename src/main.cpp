@@ -1,9 +1,16 @@
-#include "Conn.hpp"
+#include "Brain.hpp"
+#include "CameraData.hpp"
 #include "Decoder.hpp"
+#include "FlowDeck.hpp"
 #include "RTStatus.hpp"
-#include <argos3/core/utility/math/vector3.h>
-#include <bits/stdint-uintn.h>
+#include "SensorData.hpp"
+#include "Vec4.hpp"
+#include "conn/Conn.hpp"
+#include <argos3/core/utility/math/angles.h>
+#include <argos3/core/utility/math/quaternion.h>
 #include <cstdint>
+#include <cstdlib>
+#include <exception>
 #include <iostream>
 #include <ostream>
 #include <random>
@@ -11,22 +18,33 @@
 #include <thread>
 #include <utility>
 
+#include <spdlog/spdlog.h>
+
 /* argos::CCI_Controller */
 #include <argos3/core/control_interface/ci_controller.h>
 /* argos::TConfigurationNode */
 #include <argos3/core/utility/configuration/argos_configuration.h>
 /* argos::Abs */
 #include <argos3/core/utility/math/general.h>
+/* argos::CVector3 */
+#include <argos3/core/utility/math/vector3.h>
 /* argos::CCI_BatterySensor */
 #include <argos3/plugins/robots/generic/control_interface/ci_battery_sensor.h>
 /* argos::CCI_PositioningSensor */
 #include <argos3/plugins/robots/generic/control_interface/ci_positioning_sensor.h>
 /* argos::CCI_QuadRotorPositionActuator */
 #include <argos3/plugins/robots/generic/control_interface/ci_quadrotor_position_actuator.h>
+/* args::CCI_CrazyflieDistanceScannerSensor */
+#include <argos3/plugins/robots/crazyflie/control_interface/ci_crazyflie_distance_scanner_sensor.h>
 
-static uint16_t mainId = 0;
+static uint16_t mainId = 0; // NOLINT
 
-class CCrazyflieSensing : public argos::CCI_Controller {
+static std::string get_env(const std::string &var, const std::string &val) {
+	const auto *var_val = std::getenv(var.c_str());
+	return var_val ? var_val : val;
+}
+
+class CCrazyflieSensing : public argos::CCI_Controller { // NOLINT
 private:
 	// 8 ticks per second
 	static constexpr const uint8_t tick_rate_{8};
@@ -35,31 +53,39 @@ private:
 	// 1 pule each n ticks
 	static constexpr const uint_fast8_t tick_pulse_{tick_rate_ / pulse_rate_};
 
+	const uint16_t id_{mainId++};
+
 	uint32_t tick_count_{};
+
 	conn::Conn conn_;
-	RTStatus rt_status_;
-	uint16_t id_ = mainId++;
+	brain::Brain brain_;
 	Decoder decoder_;
-	int counter_ = 0;
-	int squareSize_ = 5;
-	std::array<argos::CVector3, 4> squareMoves_ = {
-	    argos::CVector3(1, 0, 0.5), argos::CVector3(0, 1, 0.5),
-	    argos::CVector3(-1, 0, 0.5), argos::CVector3(0, -1, 0.5)};
+	RTStatus rt_status_;
+	double orientation_ = argos::CRadians::PI_OVER_TWO.GetValue();
 
 	/* Pointer to the position actuator */
 	argos::CCI_QuadRotorPositionActuator *m_pcPropellers{};
 
+	/* Pointer to the battery sensor */
+	argos::CCI_BatterySensor *m_pcBattery{};
+
 	/* Pointer to the positioning sensor */
 	argos::CCI_PositioningSensor *m_pcPos{};
 
-	/* Pointer to the battery sensor */
-	argos::CCI_BatterySensor *m_pcBattery{};
+	/* Pointer to the crazyflie distance sensor */
+	argos::CCI_CrazyflieDistanceScannerSensor *m_pcDistance{};
+
+	FlowDeck flow_deck_{};
 
 public:
 	/* Class constructor. */
 	CCrazyflieSensing()
-	    : conn_("localhost", 3995),
-	      rt_status_("argos_drone_" + std::to_string(mainId)), decoder_() {
+	    : conn_(
+	          get_env("HOST", "localhost"),
+	          static_cast<std::uint16_t>(std::stoul(get_env("PORT", "3995")))),
+	      brain_(id_), decoder_(),
+	      rt_status_("argos_drone_" + std::to_string(mainId)) {
+		brain_.setState(brain::idle);
 		std::cout << "drone " << rt_status_.get_name() << " created"
 		          << std::endl;
 	}
@@ -79,8 +105,21 @@ public:
 		m_pcPos = GetSensor<argos::CCI_PositioningSensor>("positioning");
 
 		m_pcBattery = GetSensor<argos::CCI_BatterySensor>("battery");
+		m_pcDistance = GetSensor<argos::CCI_CrazyflieDistanceScannerSensor>(
+		    "crazyflie_distance_scanner");
 
-		std::cout << "Init OK" << std::endl;
+		const auto &cPos = m_pcPos->GetReading().Position;
+
+		flow_deck_.init(cPos);
+		brain_.setInitialPosition(Vec4(static_cast<float_t>(cPos.GetX()),
+		                               static_cast<float_t>(cPos.GetY()),
+		                               static_cast<float_t>(cPos.GetZ())));
+
+		spdlog::info("argos_drone_" + std::to_string(id_) +
+		             " init position: (x: " + std::to_string(cPos.GetX()) +
+		             " y: " + std::to_string(cPos.GetY()) +
+		             " z: " + std::to_string(cPos.GetZ()) + ")");
+		spdlog::info("Init OK");
 	}
 
 	/*
@@ -88,44 +127,68 @@ public:
 	 * The length of the time step is set in the XML file.
 	 */
 	void ControlStep() override {
+		// Battery
+		const auto &battery = m_pcBattery->GetReading().AvailableCharge;
 
-		// Retrieve drone data
-		const auto &sBatRead = m_pcBattery->GetReading();
-		const auto &cPos = m_pcPos->GetReading().Position;
+		// Position
+		const auto &position = m_pcPos->GetReading().Position;
+		const auto &orientation = m_pcPos->GetReading().Orientation;
 
+		// FlowDeck v2
+		// https://www.bitcraze.io/products/flow-deck-v2/
+		const auto camera_data =
+		    flow_deck_.getInitPositionDelta(position, orientation);
+
+		// Look here for documentation on the distance sensor:
+		// /root/argos3/src/plugins/robots/crazyflie/control_interface/ci_crazyflie_distance_scanner_sensor.h
+		// Read distance sensor
+		// Multi-ranger deck
+		// https://www.bitcraze.io/products/multi-ranger-deck/
+		auto sDistRead = m_pcDistance->GetReadingsMap();
+		auto iterDistRead = sDistRead.begin();
+		SensorData sensor_data{};
+		if (sDistRead.size() == 4) {
+			sensor_data = {
+			    static_cast<std::uint16_t>((iterDistRead++)->second),
+			    static_cast<std::uint16_t>((iterDistRead++)->second),
+			    static_cast<std::uint16_t>((iterDistRead++)->second),
+			    static_cast<std::uint16_t>((iterDistRead++)->second)};
+		}
+
+		// spdlog::info(std::to_string(id_) +
+		//              " -> (x: " + std::to_string(position.GetX()) +
+		//              " y: " + std::to_string(position.GetY()) +
+		//              " z: " + std::to_string(position.GetZ()) + ")");
 		// Update drone status
-		rt_status_.update(static_cast<std::float_t>(sBatRead.AvailableCharge),
-		                  Vec4(static_cast<std::float_t>(cPos.GetX()),
-		                       static_cast<std::float_t>(cPos.GetY()),
-		                       static_cast<std::float_t>(cPos.GetZ())));
+		Vec4 position_vec4 = Vec4(static_cast<std::float_t>(position.GetX()),
+		                          static_cast<std::float_t>(position.GetY()),
+		                          static_cast<std::float_t>(position.GetZ()));
+		rt_status_.update(static_cast<std::float_t>(battery), position_vec4);
 
 		switch (conn_.status()) {
-		case conn::connected:
+		case conn::state::plugable:
+			conn_.plug();
+			break;
+		case conn::state::connectable:
+			conn_.connect();
+			break;
+		case conn::state::connected:
 			if (tick_count_ % tick_pulse_ == 0) {
 				conn_.send(rt_status_.encode());
 			} else {
 				auto msg = conn_.recv();
-				if (msg && decoder_.msgValid(std::move(*msg))) {
-					auto dest = decoder_.getName(std::move(*msg));
+				if (msg) {
 					auto cmd = decoder_.decode(std::move(*msg));
-					if (dest == rt_status_.get_name()) {
-						switch (cmd) {
-						case cmd_t::take_off:
-							if (!rt_status_.isFlying()) {
-								std::cout
-								    << rt_status_.get_name() + " : TakeOff()"
-								    << std::endl;
-								rt_status_.enable();
-							}
+					if (cmd) {
+						switch (*cmd) {
+						case cmd::start_mission:
+							brain_.setState(brain::State::take_off);
+							rt_status_.enable();
 							break;
-						case cmd_t::land:
-							if (rt_status_.isFlying()) {
-								std::cout << rt_status_.get_name() + " : Land()"
-								          << std::endl;
-								rt_status_.disable();
-							}
+						case cmd::land:
+							brain_.setState(brain::State::land);
+							rt_status_.disable();
 							break;
-						case cmd_t::unknown:
 						default:
 							break;
 						}
@@ -133,40 +196,48 @@ public:
 				}
 			}
 			break;
-		case conn::plugable:
-			conn_.plug();
+		case conn::state::disconnectable:
+			conn_.disconnect();
 			break;
-		case conn::connectable:
-			conn_.connect();
-			break;
-		case conn::unplugable:
+		case conn::state::unplugable:
 			conn_.unplug();
+			break;
+		case conn::state::terminated:
+			std::cout << "connection terminated" << std::endl;
+			break;
+		case conn::state::unknown:
+			std::cerr << "connection in an unknown state" << std::endl;
 			break;
 		}
 		++tick_count_;
 
-		if (rt_status_.isFlying()) {
-			argos::CVector3 nextMove;
-			++counter_;
-			if (counter_ < 1 * squareSize_) {
-				nextMove = squareMoves_[0];
-			} else if (counter_ < 2 * squareSize_) {
-				nextMove = squareMoves_[1];
-			} else if (counter_ < 3 * squareSize_) {
-				nextMove = squareMoves_[2];
-			} else if (counter_ < 4 * squareSize_) {
-				nextMove = squareMoves_[3];
+		const auto next_move =
+		    brain_.computeNextMove(&camera_data, &sensor_data);
+		if (next_move) {
+			// spdlog::info("next_move (" +
+			// std::to_string(next_move->coords.x()) +
+			//              "," + std::to_string(next_move->coords.y()) + "," +
+			//              std::to_string(next_move->coords.z()) + ")" + " yaw
+			//              " + std::to_string(next_move->yaw));
+			if (next_move->relative) {
+				m_pcPropellers->SetRelativePosition(argos::CVector3(
+				    next_move->coords.x(), next_move->coords.y(),
+				    next_move->coords.z()));
 			} else {
-				counter_ = 0;
-				m_pcPropellers->SetAbsolutePosition(
-				    argos::CVector3(0, 0, cPos.GetZ()));
-				return;
+				m_pcPropellers->SetAbsolutePosition(argos::CVector3(
+				    next_move->coords.x(), next_move->coords.y(),
+				    next_move->coords.z()));
+				m_pcPropellers->SetAbsoluteYaw(argos::CRadians(next_move->yaw));
 			}
-			m_pcPropellers->SetRelativePosition(nextMove);
-		} else {
-			m_pcPropellers->SetAbsolutePosition(
-			    argos::CVector3(0.1 * id_, 0.1 * id_, 0.01));
 		}
+	}
+
+	std::string trunc(float val, int numDigits) {
+		std::string output = std::to_string(val).substr(0, numDigits + 1);
+		if (output.find('.') == std::string::npos || output.back() == '.') {
+			output.pop_back();
+		}
+		return output;
 	}
 
 	/*
@@ -185,7 +256,7 @@ public:
 	 * so the function could have been omitted. It's here just for
 	 * completeness.
 	 */
-	void Destroy() override {}
+	void Destroy() override { conn_.terminate(); }
 };
 
 // NOLINTNEXTLINE
