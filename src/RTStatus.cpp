@@ -22,10 +22,11 @@ RTStatus::RTStatus(std::string name)
  * @return std::string serialized pulse object
  */
 std::string RTStatus::encode() {
+
 	const tao::json::value pulse = {
 	    {"type", "pulse"},
 	    {"data",
-	     {{"timestamp", 0},
+	     {{"timestamp", std::time(nullptr)},
 	      {"name", name_},
 	      {"flying", flying_},
 	      {"battery", battery_},

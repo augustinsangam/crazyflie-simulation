@@ -99,6 +99,8 @@ public:
 	 * file in the <controllers><footbot_diffusion_controller> section.
 	 */
 	void Init(argos::TConfigurationNode & /*t_node*/) override {
+		spdlog::set_level(spdlog::level::debug);
+
 		m_pcPropellers = GetActuator<argos::CCI_QuadRotorPositionActuator>(
 		    "quadrotor_position");
 
@@ -181,7 +183,7 @@ public:
 					auto cmd = decoder_.decode(std::move(*msg));
 					if (cmd) {
 						switch (*cmd) {
-						case cmd::start_mission:
+						case cmd::take_off:
 							brain_.setState(brain::State::take_off);
 							rt_status_.enable();
 							break;

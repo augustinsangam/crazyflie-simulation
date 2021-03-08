@@ -11,6 +11,8 @@
 #include <stdexcept>
 #include <utility>
 
+#include <spdlog/spdlog.h>
+
 extern "C" {
 /* ::htons */
 #include <arpa/inet.h>
@@ -86,10 +88,15 @@ void Conn::input_thread(Conn *conn) {
 			break;
 		}
 
+		spdlog::debug("{}: Input: {}", static_cast<void *>(conn),
+		              std::string(mem, rc));
+
 		auto msg = make_pair(std::unique_ptr<char[]>(mem), rc);
 
 		conn->input_chn_.send(std::move(msg));
 	}
+
+	spdlog::warn("{}: Input is dead", static_cast<void *>(conn));
 }
 
 void Conn::output_thread(Conn *conn) {
@@ -117,6 +124,7 @@ void Conn::output_thread(Conn *conn) {
 			break;
 		}
 
+		spdlog::debug("{}: Output", static_cast<void *>(conn));
 		if (::send(conn->sock_, msg->data(), msg->size(), 0) < 0) {
 			if (errno == EPIPE || errno == ECONNRESET) {
 				conn->state_ = state::unplugable;
@@ -127,6 +135,8 @@ void Conn::output_thread(Conn *conn) {
 			break;
 		}
 	}
+
+	spdlog::warn("{}: Output is dead", static_cast<void *>(conn));
 }
 
 Conn::Conn(const std::string &host, std::uint16_t port, std::size_t msg_len)
@@ -239,6 +249,8 @@ void Conn::connect() {
 		return;
 	}
 
+	spdlog::info("{}: Connected", static_cast<void *>(this));
+
 	state_ = state::connected;
 	connect_wait_.notify_all();
 	std::this_thread::yield();
@@ -264,7 +276,13 @@ void Conn::disconnect() {
 	state_ = state::unplugable;
 }
 
-void Conn::send(std::string &&msg) { output_chn_.send(std::move(msg)); }
+void Conn::send(std::string &&msg) {
+	if (state_ == state::connected) {
+		spdlog::debug("{}: Send", static_cast<void *>(this));
+		output_chn_.send(std::move(msg));
+		std::this_thread::yield();
+	}
+}
 
 std::optional<std::pair<std::unique_ptr<char[]>, std::size_t>> Conn::recv() {
 	return input_chn_.recv();
