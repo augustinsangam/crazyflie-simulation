@@ -183,7 +183,7 @@ public:
 					auto cmd = decoder_.decode(std::move(*msg));
 					if (cmd) {
 						switch (*cmd) {
-						case cmd::start_mission:
+						case cmd::take_off:
 							brain_.setState(brain::State::take_off);
 							rt_status_.enable();
 							break;

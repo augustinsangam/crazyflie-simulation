@@ -95,6 +95,8 @@ void Conn::input_thread(Conn *conn) {
 
 		conn->input_chn_.send(std::move(msg));
 	}
+
+	spdlog::warn("{}: Input is dead", static_cast<void *>(conn));
 }
 
 void Conn::output_thread(Conn *conn) {
@@ -133,6 +135,8 @@ void Conn::output_thread(Conn *conn) {
 			break;
 		}
 	}
+
+	spdlog::warn("{}: Output is dead", static_cast<void *>(conn));
 }
 
 Conn::Conn(const std::string &host, std::uint16_t port, std::size_t msg_len)
@@ -276,6 +280,7 @@ void Conn::send(std::string &&msg) {
 	if (state_ == state::connected) {
 		spdlog::debug("{}: Send", static_cast<void *>(this));
 		output_chn_.send(std::move(msg));
+		std::this_thread::yield();
 	}
 }
 

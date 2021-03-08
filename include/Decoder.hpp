@@ -15,6 +15,7 @@ enum T : int_fast8_t {
 	land,
 	lighten,
 	darken,
+	take_off,
 };
 } // namespace cmd
 
@@ -27,6 +28,7 @@ private:
 	    {"land", cmd::land},
 	    {"lighten", cmd::lighten},
 	    {"darken", cmd::darken},
+	    {"takeOff", cmd::take_off},
 	    {"startMission", cmd::start_mission}};
 
 public:
