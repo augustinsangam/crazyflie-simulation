@@ -101,5 +101,6 @@ WORKDIR /build
 ENV LD_LIBRARY_PATH=/opt/lib/argos3
 
 CMD cmake /simulation && make && \
-	sed -i "s/random_seed=\".*\" \/>/random_seed=\"$RANDOM\" \/>/g" ../config.xml \
-	/opt/bin/argos3 -c /simulation/config.xml
+	cp /simulation/config.xml . && \
+	sed -i "s/random_seed=\".*\" \/>/random_seed=\"$RANDOM\" \/>/g" ./config.xml \
+	/opt/bin/argos3 -c ./config.xml
