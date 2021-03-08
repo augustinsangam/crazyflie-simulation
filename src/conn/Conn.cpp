@@ -88,6 +88,9 @@ void Conn::input_thread(Conn *conn) {
 			break;
 		}
 
+		spdlog::debug("{}: Input: {}", static_cast<void *>(conn),
+		              std::string(mem, rc));
+
 		auto msg = make_pair(std::unique_ptr<char[]>(mem), rc);
 
 		conn->input_chn_.send(std::move(msg));
