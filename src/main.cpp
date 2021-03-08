@@ -99,6 +99,8 @@ public:
 	 * file in the <controllers><footbot_diffusion_controller> section.
 	 */
 	void Init(argos::TConfigurationNode & /*t_node*/) override {
+		spdlog::set_level(spdlog::level::debug);
+
 		m_pcPropellers = GetActuator<argos::CCI_QuadRotorPositionActuator>(
 		    "quadrotor_position");
 
