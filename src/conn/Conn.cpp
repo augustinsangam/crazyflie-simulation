@@ -119,7 +119,7 @@ void Conn::output_thread(Conn *conn) {
 			break;
 		}
 
-		spdlog::debug("{}: Output\n", static_cast<void *>(conn));
+		spdlog::debug("{}: Output", static_cast<void *>(conn));
 		if (::send(conn->sock_, msg->data(), msg->size(), 0) < 0) {
 			if (errno == EPIPE || errno == ECONNRESET) {
 				conn->state_ = state::unplugable;
@@ -242,7 +242,7 @@ void Conn::connect() {
 		return;
 	}
 
-	spdlog::info("{}: Connected\n", static_cast<void *>(this));
+	spdlog::info("{}: Connected", static_cast<void *>(this));
 
 	state_ = state::connected;
 	connect_wait_.notify_all();
@@ -271,7 +271,7 @@ void Conn::disconnect() {
 
 void Conn::send(std::string &&msg) {
 	if (state_ == state::connected) {
-		spdlog::debug("{}: Send\n", static_cast<void *>(this));
+		spdlog::debug("{}: Send", static_cast<void *>(this));
 		output_chn_.send(std::move(msg));
 	}
 }
