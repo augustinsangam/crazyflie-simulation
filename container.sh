@@ -18,6 +18,7 @@ esac
 
 if ! >/dev/null 2>&1 docker container inspect simulation; then
 	docker container create \
+		-e 'HOST=host.docker.internal' \
 		-e 'QT_QPA_PLATFORM=wayland' \
 		-e "WAYLAND_DISPLAY=${WAYLAND_DISPLAY}" \
 		-e 'XDG_RUNTIME_DIR=/tmp' \
