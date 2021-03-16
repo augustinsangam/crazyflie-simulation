@@ -8,5 +8,6 @@
   "cmake": {
     "configureOnOpen": true,
     "generator": "Unix Makefiles"
-  }
+  },
+  "editor.formatOnSave": true
 }
