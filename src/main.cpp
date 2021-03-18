@@ -2,24 +2,28 @@
 #include "CameraData.hpp"
 #include "Decoder.hpp"
 #include "FlowDeck.hpp"
+#include "Proxy.hpp"
 #include "RTStatus.hpp"
 #include "SensorData.hpp"
+#include "SharedQueue.hpp"
 #include "Vec4.hpp"
 #include "conn/Conn.hpp"
-#include <argos3/core/utility/math/angles.h>
-#include <argos3/core/utility/math/quaternion.h>
+#include "gen_buf.hpp"
 #include <cstdint>
-#include <cstdlib>
 #include <exception>
 #include <iostream>
+#include <memory>
 #include <ostream>
 #include <random>
 #include <string>
 #include <thread>
+#include <unordered_map>
 #include <utility>
 
 #include <spdlog/spdlog.h>
 
+#include <argos3/core/utility/math/angles.h>
+#include <argos3/core/utility/math/quaternion.h>
 /* argos::CCI_Controller */
 #include <argos3/core/control_interface/ci_controller.h>
 /* argos::TConfigurationNode */
@@ -39,11 +43,6 @@
 
 static uint16_t mainId = 0; // NOLINT
 
-static std::string get_env(const std::string &var, const std::string &val) {
-	const auto *var_val = std::getenv(var.c_str());
-	return var_val ? var_val : val;
-}
-
 class CCrazyflieSensing : public argos::CCI_Controller { // NOLINT
 private:
 	// 8 ticks per second
@@ -57,10 +56,10 @@ private:
 
 	uint32_t tick_count_{};
 
-	conn::Conn conn_;
 	brain::Brain brain_;
 	Decoder decoder_;
 	RTStatus rt_status_;
+	Proxy proxy_;
 	double orientation_ = argos::CRadians::PI_OVER_TWO.GetValue();
 
 	/* Pointer to the position actuator */
@@ -80,11 +79,9 @@ private:
 public:
 	/* Class constructor. */
 	CCrazyflieSensing()
-	    : conn_(
-	          get_env("HOST", "localhost"),
-	          static_cast<std::uint16_t>(std::stoul(get_env("PORT", "3995")))),
-	      brain_(id_), decoder_(),
-	      rt_status_("argos_drone_" + std::to_string(mainId)) {
+	    : brain_(id_), decoder_(),
+	      rt_status_("simulation_" + std::to_string(mainId)),
+	      proxy_("simulation_" + std::to_string(mainId)) {
 		brain_.setState(brain::idle);
 		std::cout << "drone " << rt_status_.get_name() << " created"
 		          << std::endl;
@@ -99,7 +96,9 @@ public:
 	 * file in the <controllers><footbot_diffusion_controller> section.
 	 */
 	void Init(argos::TConfigurationNode & /*t_node*/) override {
-		spdlog::set_level(spdlog::level::debug);
+		spdlog::set_level(spdlog::level::trace);
+
+		/**/
 
 		m_pcPropellers = GetActuator<argos::CCI_QuadRotorPositionActuator>(
 		    "quadrotor_position");
@@ -167,49 +166,25 @@ public:
 		                          static_cast<std::float_t>(position.GetZ()));
 		rt_status_.update(static_cast<std::float_t>(battery), position_vec4);
 
-		switch (conn_.status()) {
-		case conn::state::plugable:
-			conn_.plug();
-			break;
-		case conn::state::connectable:
-			conn_.connect();
-			break;
-		case conn::state::connected:
-			if (tick_count_ % tick_pulse_ == 0) {
-				conn_.send(rt_status_.encode());
-			} else {
-				auto msg = conn_.recv();
-				if (msg) {
-					auto cmd = decoder_.decode(std::move(*msg));
-					if (cmd) {
-						switch (*cmd) {
-						case cmd::take_off:
-							brain_.setState(brain::State::take_off);
-							rt_status_.enable();
-							break;
-						case cmd::land:
-							brain_.setState(brain::State::land);
-							rt_status_.disable();
-							break;
-						default:
-							break;
-						}
-					}
+		if (tick_count_ % tick_pulse_ == 0) {
+			proxy_.send(rt_status_.encode());
+		} else {
+			auto cmd = proxy_.next_cmd();
+			if (cmd) {
+				spdlog::info("Received command {}", *cmd);
+				switch (*cmd) {
+				case cmd::take_off:
+					brain_.setState(brain::State::take_off);
+					rt_status_.enable();
+					break;
+				case cmd::land:
+					brain_.setState(brain::State::land);
+					rt_status_.disable();
+					break;
+				default:
+					break;
 				}
 			}
-			break;
-		case conn::state::disconnectable:
-			conn_.disconnect();
-			break;
-		case conn::state::unplugable:
-			conn_.unplug();
-			break;
-		case conn::state::terminated:
-			std::cout << "connection terminated" << std::endl;
-			break;
-		case conn::state::unknown:
-			std::cerr << "connection in an unknown state" << std::endl;
-			break;
 		}
 		++tick_count_;
 
@@ -258,7 +233,8 @@ public:
 	 * so the function could have been omitted. It's here just for
 	 * completeness.
 	 */
-	void Destroy() override { conn_.terminate(); }
+	void Destroy() override { /*conn_->terminate();*/
+	}
 };
 
 // NOLINTNEXTLINE

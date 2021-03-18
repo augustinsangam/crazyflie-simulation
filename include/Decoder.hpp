@@ -6,18 +6,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace cmd {
-enum T : int_fast8_t {
-	unknown = -1,
-	none,
-	pulse,
-	start_mission,
-	land,
-	lighten,
-	darken,
-	take_off,
-};
-} // namespace cmd
+#include "cmd/T.hpp"
 
 class Decoder {
 private:

@@ -6,7 +6,8 @@
 namespace conn::state {
 enum T : std::int_fast8_t {
 	unknown = -127,
-	plugable = 0,
+	init = 0,
+	plugable,
 	connectable,
 	connected,
 	disconnectable,

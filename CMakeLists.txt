@@ -47,5 +47,6 @@ target_sources(controller PRIVATE
 	"./src/conn/Conn.cpp"
 	"./src/Brain.cpp"
 	"./src/Decoder.cpp"
+	"./src/Proxy.cpp"
 	"./src/RTStatus.cpp"
 	"./src/main.cpp")

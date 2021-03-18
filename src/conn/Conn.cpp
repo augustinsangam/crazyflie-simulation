@@ -88,15 +88,12 @@ void Conn::input_thread(Conn *conn) {
 			break;
 		}
 
-		spdlog::debug("{}: Input: {}", static_cast<void *>(conn),
-		              std::string(mem, rc));
-
+		spdlog::debug("Calling callback");
 		auto msg = make_pair(std::unique_ptr<char[]>(mem), rc);
-
-		conn->input_chn_.send(std::move(msg));
+		conn->cb_(std::move(msg));
 	}
 
-	spdlog::warn("{}: Input is dead", static_cast<void *>(conn));
+	spdlog::debug("{}: Input is dead", static_cast<void *>(conn));
 }
 
 void Conn::output_thread(Conn *conn) {
@@ -124,7 +121,6 @@ void Conn::output_thread(Conn *conn) {
 			break;
 		}
 
-		spdlog::debug("{}: Output", static_cast<void *>(conn));
 		if (::send(conn->sock_, msg->data(), msg->size(), 0) < 0) {
 			if (errno == EPIPE || errno == ECONNRESET) {
 				conn->state_ = state::unplugable;
@@ -136,13 +132,15 @@ void Conn::output_thread(Conn *conn) {
 		}
 	}
 
-	spdlog::warn("{}: Output is dead", static_cast<void *>(conn));
+	spdlog::debug("{}: Output is dead", static_cast<void *>(conn));
 }
 
-Conn::Conn(const std::string &host, std::uint16_t port, std::size_t msg_len)
+Conn::Conn(const std::string &host, std::uint16_t port, cb_t cb,
+           std::size_t msg_len)
     : msg_len_{msg_len}, state_{}, sock_{}, addr_{.sin_family = AF_INET,
                                                   .sin_port = ::htons(port)},
-      input_thr_(input_thread, this), output_thr_(output_thread, this) {
+      input_thr_(input_thread, this),
+      output_thr_(output_thread, this), cb_{std::move(cb)} {
 	struct addrinfo *it, *res,
 	    hints{.ai_family = AF_INET, .ai_socktype = SOCK_STREAM};
 
@@ -167,6 +165,8 @@ Conn::Conn(const std::string &host, std::uint16_t port, std::size_t msg_len)
 	addr_.sin_addr.s_addr = addr_in->sin_addr.s_addr;
 
 	::freeaddrinfo(res);
+
+	state_ = state::plugable;
 }
 
 Conn::~Conn() { terminate(); }
@@ -185,7 +185,6 @@ void Conn::terminate() {
 	}
 
 	state_ = state::terminated;
-	input_chn_.drain();
 	output_chn_.drain();
 	connect_wait_.notify_all();
 	std::this_thread::yield();
@@ -278,14 +277,9 @@ void Conn::disconnect() {
 
 void Conn::send(std::string &&msg) {
 	if (state_ == state::connected) {
-		spdlog::debug("{}: Send", static_cast<void *>(this));
 		output_chn_.send(std::move(msg));
 		std::this_thread::yield();
 	}
-}
-
-std::optional<std::pair<std::unique_ptr<char[]>, std::size_t>> Conn::recv() {
-	return input_chn_.recv();
 }
 
 } // namespace conn

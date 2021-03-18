@@ -77,16 +77,3 @@ void RTStatus::print() const {
 	          << "pos: " << pos_.x() << " " << pos_.y() << " " << pos_.z()
 	          << std::endl;
 }
-
-/**
- * @brief Returns the name of the current drone
- *
- * @return std::string
- */
-std::string RTStatus::getName() {
-	std::string shortName;
-	for (size_t i = 0; i < 5; i++) {
-		shortName += name_[i];
-	}
-	return shortName;
-}
