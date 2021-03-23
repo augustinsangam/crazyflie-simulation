@@ -13,7 +13,7 @@
   <!-- ************************* -->
   <framework>
     <system threads="0" />
-    <experiment length="0" ticks_per_second="8" random_seed="919" />
+    <experiment length="0" ticks_per_second="8" random_seed="15155" />
   </framework>
 
   <!-- *************** -->
@@ -61,7 +61,7 @@
       <controller config="ssc" />
       <battery model="time_motion" delta="1e-3" pos_delta="1e-3" orient_delta="1e-3" />
     </crazyflie>
-    <crazyflie id="argos_drone_1">
+    <!-- <crazyflie id="argos_drone_1">
       <body position="0,0,0" orientation="135,0,0" />
       <controller config="ssc" />
       <battery model="time_motion" delta="1e-3" pos_delta="1e-3" orient_delta="1e-3" />
@@ -75,7 +75,7 @@
       <body position="0,0,0" orientation="315,0,0" />
       <controller config="ssc" />
       <battery model="time_motion" delta="1e-3" pos_delta="1e-3" orient_delta="1e-3" />
-    </crazyflie>
+    </crazyflie> -->
 
 
     <!-- Arena test walls -->

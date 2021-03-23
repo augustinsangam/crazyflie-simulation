@@ -34,6 +34,8 @@ else()
 	set(FPIE "-fPIE")
 endif()
 
+set(EXPLORATION_METHOD 1)
+set(TICKS_PER_FSM_LOOP 8)
 
 find_package(spdlog REQUIRED)
 find_package(taocpp-json REQUIRED)
@@ -50,3 +52,4 @@ target_sources(controller PRIVATE
 	"./src/Proxy.cpp"
 	"./src/RTStatus.cpp"
 	"./src/main.cpp")
+
