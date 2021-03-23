@@ -23,6 +23,7 @@
 #include <unordered_map>
 #include <utility>
 
+#include "RSSIBeacon.hpp"
 #include "exploration/state_machine.hpp"
 #include "porting/porting.hpp"
 
@@ -64,10 +65,12 @@ static argos::CCI_CrazyflieDistanceScannerSensor *m_pcDistance{};
 
 static FlowDeck flow_deck_{};
 
+static RSSIBeacon rssi_beacon_{};
+
 class CCrazyflieSensing : public argos::CCI_Controller { // NOLINT
 private:
 	// 8 ticks per second
-	static constexpr const uint8_t tick_rate_{8};
+	static constexpr const uint8_t tick_rate_{TICKS_PER_FSM_LOOP};
 	// 2 pulses per second
 	static constexpr const uint8_t pulse_rate_{2};
 	// 1 pule each n ticks
@@ -123,6 +126,9 @@ public:
 		const auto &cPos = m_pcPos->GetReading().Position;
 
 		flow_deck_.init(cPos);
+		rssi_beacon_.init(Vec4(static_cast<float_t>(cPos.GetX()),
+		                       static_cast<float_t>(cPos.GetY()),
+		                       static_cast<float_t>(cPos.GetZ())));
 		brain_.setInitialPosition(Vec4(static_cast<float_t>(cPos.GetX()),
 		                               static_cast<float_t>(cPos.GetY()),
 		                               static_cast<float_t>(cPos.GetZ())));
@@ -150,6 +156,11 @@ public:
 		// Position
 		const auto &position = m_pcPos->GetReading().Position;
 		const auto &orientation = m_pcPos->GetReading().Orientation;
+
+		// Update rssi_beacon
+		rssi_beacon_.update(Vec4(static_cast<float_t>(position.GetX()),
+		                         static_cast<float_t>(position.GetY()),
+		                         static_cast<float_t>(position.GetZ())));
 
 		// Look here for documentation on the distance sensor:
 		// /root/argos3/src/plugins/robots/crazyflie/control_interface/ci_crazyflie_distance_scanner_sensor.h
@@ -243,7 +254,9 @@ uint64_t porting::config_block_get_radio_address() {
 
 void porting::system_wait_start() {}
 
-void porting::ticks_delay(uint32_t nTicksToDelay) { usleep(nTicksToDelay); }
+void porting::ticks_delay(uint32_t nTicksToDelay) {
+	usleep(nTicksToDelay / TICKS_PER_FSM_LOOP / 1000 / 1000);
+}
 
 uint32_t porting::ms_to_ticks(uint16_t ms) {
 	return ms * CCrazyflieSensing::get_ticks_per_sec() / 1000;
@@ -276,7 +289,7 @@ void porting::estimator_kalman_get_estimated_pos(exploration::point_t *pos) {
 }
 
 bool porting::send_p2p_packet_broadcast(exploration::P2PPacket *p2pp) {
-	// TODO
+	// TODO implement
 }
 
 uint8_t porting::get_deck_bc_multiranger() {
@@ -303,9 +316,7 @@ float porting::get_stabilizer_yaw() {
 	return static_cast<float_t>(yaw_rad * static_cast<double>(180) / PI);
 }
 
-uint8_t porting::get_radio_rssi() {
-	// TODO
-}
+uint8_t porting::get_radio_rssi() { return uint8_t(rssi_beacon_.read_value()); }
 
 float get_distance_sensor(uint8_t sensor_index) {
 	/*

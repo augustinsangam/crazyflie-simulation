@@ -6,6 +6,7 @@
 #include "exploration/p2p.hpp"
 #include "exploration/stabilizer_types.hpp"
 
+#define TICKS_PER_FSM_LOOP 8
 #ifndef TICKS_PER_FSM_LOOP
 #	error "Macro `TICKS_PER_FSM_LOOP` is required"
 #endif
@@ -21,6 +22,7 @@ that incorporates the above methods.
 NOTE: the switching between outbound and
 inbound has not been implemented yet
 */
+#define EXPLORATION_METHOD 1
 #ifndef EXPLORATION_METHOD
 #	error "Macro `EXPLORATION_METHOD` is required"
 #endif
