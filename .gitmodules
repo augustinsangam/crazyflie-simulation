@@ -1,0 +1,3 @@
+[submodule "exploration"]
+	path = exploration
+	url = git@gitlab.com:polytechnique-montr-al/inf3995/20211/equipe-203/exploration.git
