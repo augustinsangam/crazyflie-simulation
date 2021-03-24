@@ -22,6 +22,8 @@
 
 #include <spdlog/spdlog.h>
 
+#include <exploration/StateMachine.hpp>
+
 #include <argos3/core/utility/math/angles.h>
 #include <argos3/core/utility/math/quaternion.h>
 /* argos::CCI_Controller */
@@ -53,6 +55,8 @@ private:
 	static constexpr const uint_fast8_t tick_pulse_{tick_rate_ / pulse_rate_};
 
 	const uint16_t id_{mainId++};
+
+	exploration::StateMachine sm_;
 
 	uint32_t tick_count_{};
 
@@ -98,6 +102,9 @@ public:
 	void Init(argos::TConfigurationNode & /*t_node*/) override {
 		spdlog::set_level(spdlog::level::trace);
 
+		// TODO(): check
+		sm_.init();
+
 		/**/
 
 		m_pcPropellers = GetActuator<argos::CCI_QuadRotorPositionActuator>(
@@ -128,6 +135,9 @@ public:
 	 * The length of the time step is set in the XML file.
 	 */
 	void ControlStep() override {
+		// TOOD(): check
+		sm_.step();
+
 		// Battery
 		const auto &battery = m_pcBattery->GetReading().AvailableCharge;
 

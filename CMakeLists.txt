@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(drone CXX)
+project(simulation VERSION 0.1.0 LANGUAGES CXX)
 
 include(CheckCXXCompilerFlag)
 
@@ -34,19 +34,24 @@ else()
 	set(FPIE "-fPIE")
 endif()
 
-
 find_package(spdlog REQUIRED)
 find_package(taocpp-json REQUIRED)
+
+set(EXPLORATION_DEP ON)
+set(EXPLORATION_METHOD 1)
+add_subdirectory("./exploration")
 
 add_library(controller SHARED)
 target_compile_options(controller PRIVATE "${FPIC}")
 target_include_directories(controller PRIVATE "./include")
 target_link_libraries(controller PRIVATE common)
 target_link_libraries(controller PRIVATE spdlog::spdlog taocpp::json)
+target_link_libraries(controller PRIVATE exploration)
 target_sources(controller PRIVATE
 	"./src/conn/Conn.cpp"
 	"./src/Brain.cpp"
 	"./src/Decoder.cpp"
 	"./src/Proxy.cpp"
 	"./src/RTStatus.cpp"
-	"./src/main.cpp")
+	"./src/main.cpp"
+	"./src/porting.cpp")
