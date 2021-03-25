@@ -1,76 +1,79 @@
 #include "porting.hpp"
+#include "CCrazyflieSensing.hpp"
 
 namespace porting {
-
-void kalman_estimated_pos(exploration::point_t *pos) {
-	// TODO()
-}
 
 std::uint64_t timestamp_us() {
 	return 0; // TODO()
 }
 
-void p2p_register_cb(void (*cb)(exploration::P2PPacket *)) {
+void Porting::kalman_estimated_pos(exploration::point_t *pos) {
+	// TODO()
+	// This is How to get CCrazyflieSensing Pointer
+	auto *cf = reinterpret_cast<CCrazyflieSensing *>(ctx_);
+}
+
+void Porting::p2p_register_cb(void (*cb)(exploration::P2PPacket *)) {
 	// TODO()
 }
 
-void radiolink_broadcast_packet(exploration::P2PPacket *packet) {
+void Porting::radiolink_broadcast_packet(exploration::P2PPacket *packet) {
 	// TODO()
 }
 
-void system_wait_start() {
+void Porting::Porting::system_wait_start() {
 	// TODO()
 }
 
-void delay_ticks(uint32_t ticks) {
+void Porting::delay_ticks(uint32_t ticks) {
 	// TODO()
 }
 
-void commander_set_point(exploration::setpoint_t *sp, int prio) {
+void Porting::commander_set_point(exploration::setpoint_t *sp, int prio) {
 	// TODO()
 }
 
-std::uint64_t config_block_radio_address() {
+std::uint64_t Porting::config_block_radio_address() {
 	return 0; // TODO()
 }
 
-std::uint8_t deck_bc_multiranger() {
+std::uint8_t Porting::deck_bc_multiranger() {
 	return 0; // TODO()
 }
 
-std::uint8_t deck_bc_flow2() {
+std::uint8_t Porting::deck_bc_flow2() {
 	return 0; // TODO()
 }
 
-std::uint8_t radio_rssi() {
+std::uint8_t Porting::radio_rssi() {
 	return 0; // TODO()
 }
 
-std::float_t kalman_state_z() {
+std::float_t Porting::kalman_state_z() {
 	return 0; // TODO()
 }
 
-std::float_t stabilizer_yaw() {
+std::float_t Porting::stabilizer_yaw() {
 	return 0; // TODO()
 }
 
-std::float_t range_front() {
+std::float_t Porting::range_front() {
 	return 0; // TODO()
 }
 
-std::float_t range_left() {
+std::float_t Porting::range_left() {
 	return 0; // TODO()
 }
 
-std::float_t range_back() {
+std::float_t Porting::range_back() {
 	return 0; // TODO()
 }
 
-std::float_t range_right() {
+std::float_t Porting::range_right() {
 	return 0; // TODO()
 }
 
-std::float_t range_up() {
+std::float_t Porting::range_up() {
 	return 0; // TODO()
 }
 
