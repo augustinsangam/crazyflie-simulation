@@ -39,6 +39,7 @@ find_package(taocpp-json REQUIRED)
 
 set(EXPLORATION_DEP ON)
 set(EXPLORATION_METHOD 1)
+set(EXPLORATION_DRONE_INITIALISATION_DELAY 0)
 add_subdirectory("./exploration")
 
 add_library(controller SHARED)
