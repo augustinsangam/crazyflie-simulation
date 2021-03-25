@@ -53,5 +53,4 @@ target_sources(controller PRIVATE
 	"./src/Decoder.cpp"
 	"./src/Proxy.cpp"
 	"./src/RTStatus.cpp"
-	"./src/main.cpp"
-	"./src/porting.cpp")
+	"./src/main.cpp")

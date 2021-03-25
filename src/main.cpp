@@ -1,15 +1,14 @@
-#include "CCrazyflieSensing.hpp"
-
 #include "Brain.hpp"
 #include "CameraData.hpp"
+#include "Decoder.hpp"
 #include "FlowDeck.hpp"
 #include "Proxy.hpp"
+#include "RTStatus.hpp"
 #include "SensorData.hpp"
 #include "SharedQueue.hpp"
 #include "Vec4.hpp"
 #include "conn/Conn.hpp"
 #include "gen_buf.hpp"
-#include "porting.hpp"
 #include <cstdint>
 #include <exception>
 #include <iostream>
@@ -21,9 +20,11 @@
 #include <unordered_map>
 #include <utility>
 
-#include <spdlog/spdlog.h>
-
+/* exploration */
 #include <exploration/StateMachine.hpp>
+#include <porting.hpp>
+
+#include <spdlog/spdlog.h>
 
 #include <argos3/core/utility/math/angles.h>
 #include <argos3/core/utility/math/quaternion.h>
@@ -46,57 +47,280 @@
 
 static uint16_t mainId = 0; // NOLINT
 
-CCrazyflieSensing::CCrazyflieSensing()
-    : id_(mainId++), porting_(this), sm_(&porting_), decoder_(),
-      rt_status_("simulation_" + std::to_string(mainId)),
-      proxy_("simulation_" + std::to_string(mainId)) {
-	std::cout << "drone " << rt_status_.get_name() << " created" << std::endl;
-}
+class CCrazyflieSensing : public argos::CCI_Controller { // NOLINT
+private:
+	// 8 ticks per second
+	static constexpr const uint8_t tick_rate_{8};
+	// 2 pulses per second
+	static constexpr const uint8_t pulse_rate_{2};
+	// 1 pule each n ticks
+	static constexpr const uint_fast8_t tick_pulse_{tick_rate_ / pulse_rate_};
 
-void CCrazyflieSensing::Init(argos::TConfigurationNode & /*t_node*/) {
-	spdlog::set_level(spdlog::level::trace);
+	const uint16_t id_{mainId++};
 
-	// TODO(): Launch a thread and call sm_.p2p_call_back when needed
+	uint32_t tick_count_{};
 
-	sm_.init(); // TODO(): check
+	porting::Porting porting_{this};
+	exploration::StateMachine sm_{&porting_};
 
-	m_pcPropellers =
-	    GetActuator<argos::CCI_QuadRotorPositionActuator>("quadrotor_position");
+	brain::Brain brain_;
+	Decoder decoder_;
+	RTStatus rt_status_;
+	Proxy proxy_;
+	double orientation_ = argos::CRadians::PI_OVER_TWO.GetValue();
 
-	m_pcPos = GetSensor<argos::CCI_PositioningSensor>("positioning");
+	/* Pointer to the position actuator */
+	argos::CCI_QuadRotorPositionActuator *m_pcPropellers{};
 
-	m_pcBattery = GetSensor<argos::CCI_BatterySensor>("battery");
-	m_pcDistance = GetSensor<argos::CCI_CrazyflieDistanceScannerSensor>(
-	    "crazyflie_distance_scanner");
+	/* Pointer to the battery sensor */
+	argos::CCI_BatterySensor *m_pcBattery{};
 
-	const auto &cPos = m_pcPos->GetReading().Position;
+	/* Pointer to the positioning sensor */
+	argos::CCI_PositioningSensor *m_pcPos{};
 
-	flow_deck_.init(cPos);
+	/* Pointer to the crazyflie distance sensor */
+	argos::CCI_CrazyflieDistanceScannerSensor *m_pcDistance{};
 
-	spdlog::info("argos_drone_" + std::to_string(id_) +
-	             " init position: (x: " + std::to_string(cPos.GetX()) +
-	             " y: " + std::to_string(cPos.GetY()) +
-	             " z: " + std::to_string(cPos.GetZ()) + ")");
-	spdlog::info("Init OK");
-}
+	FlowDeck flow_deck_{};
 
-void CCrazyflieSensing::ControlStep() {
-	if (tick_count_ % tick_pulse_ == 0) {
-		proxy_.send(rt_status_.encode());
-		sm_.step(); // TODO(): Check.
-	} else {
-		auto cmd = proxy_.next_cmd();
-		if (cmd) {
-			spdlog::info("Received command {}", *cmd);
+public:
+	/* Class constructor. */
+	CCrazyflieSensing()
+	    : brain_(id_), decoder_(),
+	      rt_status_("simulation_" + std::to_string(mainId)),
+	      proxy_("simulation_" + std::to_string(mainId)) {
+		brain_.setState(brain::idle);
+		std::cout << "drone " << rt_status_.get_name() << " created"
+		          << std::endl;
+	}
+
+	/* Class destructor. */
+	~CCrazyflieSensing() override = default;
+
+	/*
+	 * This function initializes the controller.
+	 * The 't_node' variable points to the <parameters> section in the XML
+	 * file in the <controllers><footbot_diffusion_controller> section.
+	 */
+	void Init(argos::TConfigurationNode & /*t_node*/) override {
+		spdlog::set_level(spdlog::level::trace);
+
+		/**/
+
+		m_pcPropellers = GetActuator<argos::CCI_QuadRotorPositionActuator>(
+		    "quadrotor_position");
+
+		m_pcPos = GetSensor<argos::CCI_PositioningSensor>("positioning");
+
+		m_pcBattery = GetSensor<argos::CCI_BatterySensor>("battery");
+		m_pcDistance = GetSensor<argos::CCI_CrazyflieDistanceScannerSensor>(
+		    "crazyflie_distance_scanner");
+
+		const auto &cPos = m_pcPos->GetReading().Position;
+
+		flow_deck_.init(cPos);
+		brain_.setInitialPosition(Vec4(static_cast<float_t>(cPos.GetX()),
+		                               static_cast<float_t>(cPos.GetY()),
+		                               static_cast<float_t>(cPos.GetZ())));
+
+		spdlog::info("argos_drone_" + std::to_string(id_) +
+		             " init position: (x: " + std::to_string(cPos.GetX()) +
+		             " y: " + std::to_string(cPos.GetY()) +
+		             " z: " + std::to_string(cPos.GetZ()) + ")");
+		spdlog::info("Init OK");
+	}
+
+	/*
+	 * This function is called once every time step.
+	 * The length of the time step is set in the XML file.
+	 */
+	void ControlStep() override {
+		// Battery
+		const auto &battery = m_pcBattery->GetReading().AvailableCharge;
+
+		// Position
+		const auto &position = m_pcPos->GetReading().Position;
+		const auto &orientation = m_pcPos->GetReading().Orientation;
+
+		// FlowDeck v2
+		// https://www.bitcraze.io/products/flow-deck-v2/
+		const auto camera_data =
+		    flow_deck_.getInitPositionDelta(position, orientation);
+
+		// Look here for documentation on the distance sensor:
+		// /root/argos3/src/plugins/robots/crazyflie/control_interface/ci_crazyflie_distance_scanner_sensor.h
+		// Read distance sensor
+		// Multi-ranger deck
+		// https://www.bitcraze.io/products/multi-ranger-deck/
+		auto sDistRead = m_pcDistance->GetReadingsMap();
+		auto iterDistRead = sDistRead.begin();
+		SensorData sensor_data{};
+		if (sDistRead.size() == 4) {
+			sensor_data = {
+			    static_cast<std::uint16_t>((iterDistRead++)->second),
+			    static_cast<std::uint16_t>((iterDistRead++)->second),
+			    static_cast<std::uint16_t>((iterDistRead++)->second),
+			    static_cast<std::uint16_t>((iterDistRead++)->second)};
+		}
+
+		// spdlog::info(std::to_string(id_) +
+		//              " -> (x: " + std::to_string(position.GetX()) +
+		//              " y: " + std::to_string(position.GetY()) +
+		//              " z: " + std::to_string(position.GetZ()) + ")");
+		// Update drone status
+		Vec4 position_vec4 = Vec4(static_cast<std::float_t>(position.GetX()),
+		                          static_cast<std::float_t>(position.GetY()),
+		                          static_cast<std::float_t>(position.GetZ()));
+		rt_status_.update(static_cast<std::float_t>(battery), position_vec4);
+
+		if (tick_count_ % tick_pulse_ == 0) {
+			proxy_.send(rt_status_.encode());
+		} else {
+			auto cmd = proxy_.next_cmd();
+			if (cmd) {
+				spdlog::info("Received command {}", *cmd);
+				switch (*cmd) {
+				case cmd::take_off:
+					brain_.setState(brain::State::take_off);
+					rt_status_.enable();
+					break;
+				case cmd::land:
+					brain_.setState(brain::State::land);
+					rt_status_.disable();
+					break;
+				default:
+					break;
+				}
+			}
+		}
+		++tick_count_;
+
+		const auto next_move =
+		    brain_.computeNextMove(&camera_data, &sensor_data);
+		if (next_move) {
+			// spdlog::info("next_move (" +
+			// std::to_string(next_move->coords.x()) +
+			//              "," + std::to_string(next_move->coords.y()) + "," +
+			//              std::to_string(next_move->coords.z()) + ")" + " yaw
+			//              " + std::to_string(next_move->yaw));
+			if (next_move->relative) {
+				m_pcPropellers->SetRelativePosition(argos::CVector3(
+				    next_move->coords.x(), next_move->coords.y(),
+				    next_move->coords.z()));
+			} else {
+				m_pcPropellers->SetAbsolutePosition(argos::CVector3(
+				    next_move->coords.x(), next_move->coords.y(),
+				    next_move->coords.z()));
+				m_pcPropellers->SetAbsoluteYaw(argos::CRadians(next_move->yaw));
+			}
 		}
 	}
-	++tick_count_;
+
+	std::string trunc(float val, int numDigits) {
+		std::string output = std::to_string(val).substr(0, numDigits + 1);
+		if (output.find('.') == std::string::npos || output.back() == '.') {
+			output.pop_back();
+		}
+		return output;
+	}
+
+	/*
+	 * This function resets the controller to its state right after the
+	 * Init().
+	 * It is called when you press the reset button in the GUI.
+	 * In this example controller there is no need for resetting anything,
+	 * so the function could have been omitted. It's here just for
+	 * completeness.
+	 */
+	void Reset() override { tick_count_ = 0; }
+
+	/*
+	 * Called to cleanup what done by Init() when the experiment finishes.
+	 * In this example controller there is no need for clean anything up,
+	 * so the function could have been omitted. It's here just for
+	 * completeness.
+	 */
+	void Destroy() override { /*conn_->terminate();*/
+	}
+};
+
+namespace porting {
+
+std::uint64_t timestamp_us() {
+	return 0; // TODO()
 }
 
-void CCrazyflieSensing::Reset() { tick_count_ = 0; }
-
-void CCrazyflieSensing::Destroy() { /*conn_->terminate();*/
+void Porting::kalman_estimated_pos(exploration::point_t *pos) {
+	// TODO()
+	// This is How to get CCrazyflieSensing Pointer
+	auto *cf = reinterpret_cast<CCrazyflieSensing *>(ctx_);
 }
+
+void Porting::p2p_register_cb(void (*cb)(exploration::P2PPacket *)) {
+	// TODO()
+}
+
+void Porting::radiolink_broadcast_packet(exploration::P2PPacket *packet) {
+	// TODO()
+}
+
+void Porting::Porting::system_wait_start() {
+	// TODO()
+}
+
+void Porting::delay_ticks(uint32_t ticks) {
+	// TODO()
+}
+
+void Porting::commander_set_point(exploration::setpoint_t *sp, int prio) {
+	// TODO()
+}
+
+std::uint64_t Porting::config_block_radio_address() {
+	return 0; // TODO()
+}
+
+std::uint8_t Porting::deck_bc_multiranger() {
+	return 0; // TODO()
+}
+
+std::uint8_t Porting::deck_bc_flow2() {
+	return 0; // TODO()
+}
+
+std::uint8_t Porting::radio_rssi() {
+	return 0; // TODO()
+}
+
+std::float_t Porting::kalman_state_z() {
+	return 0; // TODO()
+}
+
+std::float_t Porting::stabilizer_yaw() {
+	return 0; // TODO()
+}
+
+std::float_t Porting::range_front() {
+	return 0; // TODO()
+}
+
+std::float_t Porting::range_left() {
+	return 0; // TODO()
+}
+
+std::float_t Porting::range_back() {
+	return 0; // TODO()
+}
+
+std::float_t Porting::range_right() {
+	return 0; // TODO()
+}
+
+std::float_t Porting::range_up() {
+	return 0; // TODO()
+}
+
+} // namespace porting
 
 // NOLINTNEXTLINE
 REGISTER_CONTROLLER(CCrazyflieSensing, "crazyflie_sensing_controller")
