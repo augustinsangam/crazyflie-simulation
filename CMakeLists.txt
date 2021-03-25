@@ -41,6 +41,7 @@ set(EXPLORATION_DEP ON)
 set(EXPLORATION_METHOD 1)
 set(EXPLORATION_DRONE_INITIALISATION_DELAY 0)
 add_subdirectory("./exploration")
+target_compile_options(exploration PRIVATE "${FPIC}")
 
 add_library(controller SHARED)
 target_compile_options(controller PRIVATE "${FPIC}")
