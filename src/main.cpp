@@ -9,15 +9,17 @@
 #include "SharedQueue.hpp"
 #include "Vec4.hpp"
 #include "conn/Conn.hpp"
+#include "exploration/types.hpp"
 #include "gen_buf.hpp"
 #include <argos3/core/utility/datatypes/datatypes.h>
+#include <bits/stdint-uintn.h>
+#include <cmath>
 #include <cstdint>
 #include <exception>
 #include <iostream>
 #include <memory>
 #include <ostream>
 #include <random>
-#include <cmath>
 #include <string>
 #include <thread>
 #include <unistd.h>
@@ -54,23 +56,28 @@ static const double PI = 3.141582654;
 
 class CCrazyflieSensing : public argos::CCI_Controller { // NOLINT
 private:
+	enum crazyflie_sensing_operation {
+		peer_to_peer_communication,
+		tcp_socket_communication_send,
+		tcp_socket_communication_recv,
+		state_machine,
+		idle
+	};
 	// 8 ticks per second
-	static constexpr const uint8_t tick_rate_{8};
-	// 2 pulses per second
-	static constexpr const uint8_t pulse_rate_{2};
-	// 1 pule each n ticks
-	static constexpr const uint_fast8_t tick_pulse_{tick_rate_ / pulse_rate_};
+	static constexpr const uint8_t tick_rate_{16};
 
 	uint32_t tick_count_{};
 
 	porting::DroneLayer layer_{this};
 	exploration::StateMachine sm_{&layer_};
 
-	brain::Brain brain_;
 	Decoder decoder_;
 	RTStatus rt_status_;
 	Proxy proxy_;
 	double orientation_ = argos::CRadians::PI_OVER_TWO.GetValue();
+
+	crazyflie_sensing_operation current_operation_{idle};
+	static constexpr uint8_t idle_operation_ticks_ = 2;
 
 public:
 	const uint16_t id_{++mainId};
@@ -93,10 +100,8 @@ public:
 
 	/* Class constructor. */
 	CCrazyflieSensing()
-	    : brain_(id_), decoder_(),
-	      rt_status_("simulation_" + std::to_string(mainId)),
+	    : decoder_(), rt_status_("simulation_" + std::to_string(mainId)),
 	      proxy_("simulation_" + std::to_string(mainId)) {
-		brain_.setState(brain::idle);
 		std::cout << "drone " << rt_status_.get_name() << " created"
 		          << std::endl;
 	}
@@ -112,7 +117,8 @@ public:
 	void Init(argos::TConfigurationNode & /*t_node*/) override {
 		spdlog::set_level(spdlog::level::trace);
 
-		/**/
+		/* init brain */
+		sm_.init();
 
 		m_pcPropellers = GetActuator<argos::CCI_QuadRotorPositionActuator>(
 		    "quadrotor_position");
@@ -127,11 +133,8 @@ public:
 
 		flow_deck_.init(cPos);
 		rssi_beacon_.init(Vec4(static_cast<float_t>(cPos.GetX()),
-		                               static_cast<float_t>(cPos.GetY()),
-		                               static_cast<float_t>(cPos.GetZ())));
-		brain_.setInitialPosition(Vec4(static_cast<float_t>(cPos.GetX()),
-		                               static_cast<float_t>(cPos.GetY()),
-		                               static_cast<float_t>(cPos.GetZ())));
+		                       static_cast<float_t>(cPos.GetY()),
+		                       static_cast<float_t>(cPos.GetZ())));
 
 		spdlog::info("argos_drone_" + std::to_string(id_) +
 		             " init position: (x: " + std::to_string(cPos.GetX()) +
@@ -145,6 +148,7 @@ public:
 	 * The length of the time step is set in the XML file.
 	 */
 	void ControlStep() override {
+		/* ##################### Update sensors ##################### */
 		// Battery
 		const auto &battery = m_pcBattery->GetReading().AvailableCharge;
 
@@ -188,55 +192,61 @@ public:
 		                          static_cast<std::float_t>(position.GetZ()));
 		rt_status_.update(static_cast<std::float_t>(battery), position_vec4);
 
-		if (tick_count_ % tick_pulse_ == 0) {
-			proxy_.send(rt_status_.encode());
+		/* ############## Update actuators and communication ############## */
+
+		if (tick_count_ % 16 == 0 || tick_count_ % 16 == 8) {
+			current_operation_ = tcp_socket_communication_send;
+		} else if (tick_count_ % 16 == 3 || tick_count_ % 16 == 9 ||
+		           tick_count_ % 16 == 15) {
+			current_operation_ = state_machine;
 		} else {
-			auto cmd = proxy_.next_cmd();
-			if (cmd) {
-				spdlog::info("Received command {}", *cmd);
-				switch (*cmd) {
-				case cmd::take_off:
-					brain_.setState(brain::State::take_off);
-					rt_status_.enable();
-					break;
-				case cmd::land:
-					brain_.setState(brain::State::land);
-					rt_status_.disable();
-					break;
-				default:
-					break;
-				}
-			}
-		}
-		++tick_count_;
-
-		const auto next_move =
-		    brain_.computeNextMove(&camera_data, &sensor_data);
-		if (next_move) {
-			// spdlog::info("next_move (" +
-			// std::to_string(next_move->coords.x()) +
-			//              "," + std::to_string(next_move->coords.y()) + "," +
-			//              std::to_string(next_move->coords.z()) + ")" + " yaw
-			//              " + std::to_string(next_move->yaw));
-			if (next_move->relative) {
-				m_pcPropellers->SetRelativePosition(argos::CVector3(
-				    next_move->coords.x(), next_move->coords.y(),
-				    next_move->coords.z()));
+			if (current_operation_ != tcp_socket_communication_recv &&
+			    current_operation_ != peer_to_peer_communication) {
+				current_operation_ = tcp_socket_communication_recv;
+			} else if (current_operation_ == tcp_socket_communication_recv) {
+				current_operation_ = peer_to_peer_communication;
 			} else {
-				m_pcPropellers->SetAbsolutePosition(argos::CVector3(
-				    next_move->coords.x(), next_move->coords.y(),
-				    next_move->coords.z()));
-				m_pcPropellers->SetAbsoluteYaw(argos::CRadians(next_move->yaw));
+				current_operation_ = tcp_socket_communication_recv;
 			}
 		}
-	}
 
-	std::string trunc(float val, int numDigits) {
-		std::string output = std::to_string(val).substr(0, numDigits + 1);
-		if (output.find('.') == std::string::npos || output.back() == '.') {
-			output.pop_back();
+		switch (current_operation_) {
+		case peer_to_peer_communication: {
+			// TODO
+			break;
 		}
-		return output;
+		case tcp_socket_communication_send: {
+			proxy_.send(rt_status_.encode());
+			break;
+		}
+		case tcp_socket_communication_recv: {
+			auto cmd = proxy_.next_cmd();
+			if (!cmd) {
+				break;
+			}
+			spdlog::info("Received command {}", *cmd);
+			switch (*cmd) {
+			case cmd::take_off:
+				rt_status_.enable();
+				break;
+			case cmd::land:
+				rt_status_.disable();
+				break;
+			default:
+				break;
+			}
+			break;
+		}
+		case state_machine: {
+			sm_.step();
+			break;
+		}
+		case idle: {
+			break;
+		}
+		}
+
+		++tick_count_;
 	}
 
 	/*
@@ -271,8 +281,6 @@ std::uint64_t timestamp_us() {
 }
 
 void DroneLayer::kalman_estimated_pos(exploration::point_t *pos) {
-	// TODO()
-	// This is How to get CCrazyflieSensing Pointer
 	auto *cf = reinterpret_cast<CCrazyflieSensing *>(ctx_);
 	const auto &position = cf->m_pcPos->GetReading().Position;
 	const auto &orientation = cf->m_pcPos->GetReading().Orientation;
@@ -287,27 +295,56 @@ void DroneLayer::radiolink_broadcast_packet(exploration::P2PPacket *packet) {
 	// TODO()
 }
 
-void DroneLayer::DroneLayer::system_wait_start() { }
+void DroneLayer::DroneLayer::system_wait_start() {}
 
-void DroneLayer::delay_ticks(uint32_t ticks) {
-	// TODO rename as delay_ms
-	usleep(ticks * 1000);
-}
+void DroneLayer::delay_ms(uint32_t t_ms) { usleep(t_ms * 1000); }
 
 void DroneLayer::commander_set_point(exploration::setpoint_t *sp, int prio) {
-	// TODO()
-	/**
-	 * [Notes]
-	 * setpoint->mode.(x,y,z ou yaw) est soit modeAbs soit modeVelocity, ce qui
-	 correspond en gros à setAbsolute et setRelative. Il y a enfin un
-	 modeDisable pour tout couper
+	auto *cf = reinterpret_cast<CCrazyflieSensing *>(ctx_);
 
-	 z est en modeVelocity pendant le décollage et l'atterrissage, et modeAbs
-	 pendant la plupart du temps ("hover" "vel_command")
+	/* take_of/land */
+	if (sp->mode.x == exploration::modeVelocity &&
+	    sp->mode.y == exploration::modeVelocity &&
+	    sp->mode.z == exploration::modeVelocity) {
+		cf->m_pcPropellers->SetRelativePosition(
+		    argos::CVector3(static_cast<double>(sp->velocity.x),
+		                    static_cast<double>(sp->velocity.y),
+		                    static_cast<double>(sp->velocity.z)));
+	}
 
+	if (sp->mode.yaw == exploration::modeVelocity) {
+		cf->m_pcPropellers->SetRelativeYaw(
+		    argos::CRadians(static_cast<double>(sp->attitudeRate.yaw)));
+	} else if (sp->mode.yaw == exploration::modeAbs) {
+		cf->m_pcPropellers->SetAbsoluteYaw(
+		    argos::CRadians(static_cast<double>(sp->attitudeRate.yaw)));
+	}
 
-	 *
-	 */
+	/* hover */
+	if (sp->mode.x == exploration::modeVelocity &&
+	    sp->mode.y == exploration::modeVelocity &&
+	    sp->mode.z == exploration::modeAbs && sp->velocity.x == 0.0F &&
+	    sp->velocity.y == 0.0F && sp->position.z != 0.0F) {
+		// TODO
+		const auto &position = cf->m_pcPos->GetReading().Position;
+		const auto &orientation = cf->m_pcPos->GetReading().Orientation;
+		CameraData cd =
+		    cf->flow_deck_.getInitPositionDelta(position, orientation);
+		cf->m_pcPropellers->SetAbsolutePosition(argos::CVector3(
+		    static_cast<double>(cd.delta_x), static_cast<double>(cd.delta_y),
+		    static_cast<double>(cd.z)));
+	}
+
+	/* vel_command */
+	if (sp->mode.x == exploration::modeVelocity &&
+	    sp->mode.y == exploration::modeVelocity &&
+	    sp->mode.z == exploration::modeAbs && sp->velocity.x != 0.0F &&
+	    sp->velocity.y != 0.0F && sp->position.z != 0.0F) {
+		// TODO
+		cf->m_pcPropellers->SetRelativePosition(argos::CVector3(
+		    static_cast<double>(sp->velocity.x),
+		    static_cast<double>(sp->velocity.y), static_cast<double>(0)));
+	}
 }
 
 std::uint64_t DroneLayer::config_block_radio_address() {
@@ -320,9 +357,7 @@ std::uint8_t DroneLayer::deck_bc_multiranger() {
 	return static_cast<uint8_t>(cf->m_pcDistance != nullptr);
 }
 
-std::uint8_t DroneLayer::deck_bc_flow2() {
-	return 1U;
-}
+std::uint8_t DroneLayer::deck_bc_flow2() { return 1U; }
 
 std::uint8_t DroneLayer::radio_rssi() {
 	auto *cf = reinterpret_cast<CCrazyflieSensing *>(ctx_);
@@ -343,7 +378,8 @@ std::float_t DroneLayer::stabilizer_yaw() {
 	const auto &orientation = cf->m_pcPos->GetReading().Orientation;
 	CameraData cd = cf->flow_deck_.getInitPositionDelta(position, orientation);
 	float_t yaw_rad = cd.yaw;
-	return static_cast<float_t>(yaw_rad * static_cast<float_t>(180) / static_cast<float_t>(PI));
+	return static_cast<float_t>(yaw_rad * static_cast<float_t>(180) /
+	                            static_cast<float_t>(PI));
 }
 
 float get_distance_sensor(CCrazyflieSensing *cf, uint8_t sensor_index) {
