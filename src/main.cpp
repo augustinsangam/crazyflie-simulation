@@ -3,20 +3,24 @@
 #include "Decoder.hpp"
 #include "FlowDeck.hpp"
 #include "Proxy.hpp"
+#include "RSSIBeacon.hpp"
 #include "RTStatus.hpp"
 #include "SensorData.hpp"
 #include "SharedQueue.hpp"
 #include "Vec4.hpp"
 #include "conn/Conn.hpp"
 #include "gen_buf.hpp"
+#include <argos3/core/utility/datatypes/datatypes.h>
 #include <cstdint>
 #include <exception>
 #include <iostream>
 #include <memory>
 #include <ostream>
 #include <random>
+#include <cmath>
 #include <string>
 #include <thread>
+#include <unistd.h>
 #include <unordered_map>
 #include <utility>
 
@@ -46,6 +50,7 @@
 #include <argos3/plugins/robots/crazyflie/control_interface/ci_crazyflie_distance_scanner_sensor.h>
 
 static uint16_t mainId = 0; // NOLINT
+static const double PI = 3.141582654;
 
 class CCrazyflieSensing : public argos::CCI_Controller { // NOLINT
 private:
@@ -55,8 +60,6 @@ private:
 	static constexpr const uint8_t pulse_rate_{2};
 	// 1 pule each n ticks
 	static constexpr const uint_fast8_t tick_pulse_{tick_rate_ / pulse_rate_};
-
-	const uint16_t id_{mainId++};
 
 	uint32_t tick_count_{};
 
@@ -68,6 +71,9 @@ private:
 	RTStatus rt_status_;
 	Proxy proxy_;
 	double orientation_ = argos::CRadians::PI_OVER_TWO.GetValue();
+
+public:
+	const uint16_t id_{++mainId};
 
 	/* Pointer to the position actuator */
 	argos::CCI_QuadRotorPositionActuator *m_pcPropellers{};
@@ -83,7 +89,8 @@ private:
 
 	FlowDeck flow_deck_{};
 
-public:
+	RSSIBeacon rssi_beacon_{};
+
 	/* Class constructor. */
 	CCrazyflieSensing()
 	    : brain_(id_), decoder_(),
@@ -119,6 +126,9 @@ public:
 		const auto &cPos = m_pcPos->GetReading().Position;
 
 		flow_deck_.init(cPos);
+		rssi_beacon_.init(Vec4(static_cast<float_t>(cPos.GetX()),
+		                               static_cast<float_t>(cPos.GetY()),
+		                               static_cast<float_t>(cPos.GetZ())));
 		brain_.setInitialPosition(Vec4(static_cast<float_t>(cPos.GetX()),
 		                               static_cast<float_t>(cPos.GetY()),
 		                               static_cast<float_t>(cPos.GetZ())));
@@ -146,6 +156,11 @@ public:
 		// https://www.bitcraze.io/products/flow-deck-v2/
 		const auto camera_data =
 		    flow_deck_.getInitPositionDelta(position, orientation);
+
+		// Update rssi_beacon
+		rssi_beacon_.update(Vec4(static_cast<float_t>(position.GetX()),
+		                         static_cast<float_t>(position.GetY()),
+		                         static_cast<float_t>(position.GetZ())));
 
 		// Look here for documentation on the distance sensor:
 		// /root/argos3/src/plugins/robots/crazyflie/control_interface/ci_crazyflie_distance_scanner_sensor.h
@@ -247,73 +262,142 @@ public:
 namespace porting {
 
 std::uint64_t timestamp_us() {
-	return 0; // TODO()
+	// NOLINTNEXTLINE
+	uint64_t us =
+	    std::chrono::duration_cast<std::chrono::microseconds>(
+	        std::chrono::high_resolution_clock::now().time_since_epoch())
+	        .count();
+	return us;
 }
 
 void DroneLayer::kalman_estimated_pos(exploration::point_t *pos) {
 	// TODO()
 	// This is How to get CCrazyflieSensing Pointer
 	auto *cf = reinterpret_cast<CCrazyflieSensing *>(ctx_);
+	const auto &position = cf->m_pcPos->GetReading().Position;
+	const auto &orientation = cf->m_pcPos->GetReading().Orientation;
+	CameraData cd = cf->flow_deck_.getInitPositionDelta(position, orientation);
+	pos->x = cd.delta_x;
+	pos->y = cd.delta_y;
+	pos->z = cd.z;
+	pos->timestamp = static_cast<uint32_t>(std::time(nullptr));
 }
 
 void DroneLayer::radiolink_broadcast_packet(exploration::P2PPacket *packet) {
 	// TODO()
 }
 
-void DroneLayer::DroneLayer::system_wait_start() {
-	// TODO()
-}
+void DroneLayer::DroneLayer::system_wait_start() { }
 
 void DroneLayer::delay_ticks(uint32_t ticks) {
-	// TODO()
+	// TODO rename as delay_ms
+	usleep(ticks * 1000);
 }
 
 void DroneLayer::commander_set_point(exploration::setpoint_t *sp, int prio) {
 	// TODO()
+	/**
+	 * [Notes]
+	 * setpoint->mode.(x,y,z ou yaw) est soit modeAbs soit modeVelocity, ce qui
+	 correspond en gros à setAbsolute et setRelative. Il y a enfin un
+	 modeDisable pour tout couper
+
+	 z est en modeVelocity pendant le décollage et l'atterrissage, et modeAbs
+	 pendant la plupart du temps ("hover" "vel_command")
+
+
+	 *
+	 */
 }
 
 std::uint64_t DroneLayer::config_block_radio_address() {
-	return 0; // TODO()
+	auto *cf = reinterpret_cast<CCrazyflieSensing *>(ctx_);
+	return 0xE7E7E7E700U | cf->id_;
 }
 
 std::uint8_t DroneLayer::deck_bc_multiranger() {
-	return 0; // TODO()
+	auto *cf = reinterpret_cast<CCrazyflieSensing *>(ctx_);
+	return static_cast<uint8_t>(cf->m_pcDistance != nullptr);
 }
 
 std::uint8_t DroneLayer::deck_bc_flow2() {
-	return 0; // TODO()
+	return 1U;
 }
 
 std::uint8_t DroneLayer::radio_rssi() {
-	return 0; // TODO()
+	auto *cf = reinterpret_cast<CCrazyflieSensing *>(ctx_);
+	return uint8_t(cf->rssi_beacon_.read_value());
 }
 
 std::float_t DroneLayer::kalman_state_z() {
-	return 0; // TODO()
+	auto *cf = reinterpret_cast<CCrazyflieSensing *>(ctx_);
+	const auto &position = cf->m_pcPos->GetReading().Position;
+	const auto &orientation = cf->m_pcPos->GetReading().Orientation;
+	CameraData cd = cf->flow_deck_.getInitPositionDelta(position, orientation);
+	return cd.z;
 }
 
 std::float_t DroneLayer::stabilizer_yaw() {
-	return 0; // TODO()
+	auto *cf = reinterpret_cast<CCrazyflieSensing *>(ctx_);
+	const auto &position = cf->m_pcPos->GetReading().Position;
+	const auto &orientation = cf->m_pcPos->GetReading().Orientation;
+	CameraData cd = cf->flow_deck_.getInitPositionDelta(position, orientation);
+	float_t yaw_rad = cd.yaw;
+	return static_cast<float_t>(yaw_rad * static_cast<float_t>(180) / static_cast<float_t>(PI));
+}
+
+float get_distance_sensor(CCrazyflieSensing *cf, uint8_t sensor_index) {
+	/*
+	 * From ci_crazyflie_distance_scanner_sensor.h
+	 *      front
+	 *
+	 *        0
+	 *
+	 * left 1   3 right
+	 *
+	 *        2
+	 *
+	 *      back
+	 */
+	auto sDistRead = cf->m_pcDistance->GetReadingsMap();
+	auto iterDistRead = sDistRead.begin();
+	if (sDistRead.size() == 4) {
+		for (uint8_t i = 0; i < sensor_index; i++) {
+			iterDistRead++;
+		}
+		return static_cast<float>((iterDistRead++)->second);
+	}
+	float default_value = 0.0;
+	spdlog::error("Unable to read from the multiranger sensors! Returning a "
+	              "default value (" +
+	              std::to_string(default_value) + ").");
+	return default_value;
 }
 
 std::float_t DroneLayer::range_front() {
-	return 0; // TODO()
+	auto *cf = reinterpret_cast<CCrazyflieSensing *>(ctx_);
+	return get_distance_sensor(cf, 0);
 }
 
 std::float_t DroneLayer::range_left() {
-	return 0; // TODO()
+	auto *cf = reinterpret_cast<CCrazyflieSensing *>(ctx_);
+	return get_distance_sensor(cf, 1);
 }
 
 std::float_t DroneLayer::range_back() {
-	return 0; // TODO()
+	auto *cf = reinterpret_cast<CCrazyflieSensing *>(ctx_);
+	return get_distance_sensor(cf, 2);
 }
 
 std::float_t DroneLayer::range_right() {
-	return 0; // TODO()
+	auto *cf = reinterpret_cast<CCrazyflieSensing *>(ctx_);
+	return get_distance_sensor(cf, 3);
 }
 
 std::float_t DroneLayer::range_up() {
-	return 0; // TODO()
+	// TODO
+	spdlog::error("Up sensor not implemented yet");
+	return 1.0;
 }
 
 } // namespace porting
