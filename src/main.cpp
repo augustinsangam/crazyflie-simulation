@@ -60,8 +60,8 @@ private:
 
 	uint32_t tick_count_{};
 
-	porting::Porting porting_{this};
-	exploration::StateMachine sm_{&porting_};
+	porting::DroneLayer layer_{this};
+	exploration::StateMachine sm_{&layer_};
 
 	brain::Brain brain_;
 	Decoder decoder_;
@@ -250,73 +250,69 @@ std::uint64_t timestamp_us() {
 	return 0; // TODO()
 }
 
-void Porting::kalman_estimated_pos(exploration::point_t *pos) {
+void DroneLayer::kalman_estimated_pos(exploration::point_t *pos) {
 	// TODO()
 	// This is How to get CCrazyflieSensing Pointer
 	auto *cf = reinterpret_cast<CCrazyflieSensing *>(ctx_);
 }
 
-void Porting::p2p_register_cb(void (*cb)(exploration::P2PPacket *)) {
+void DroneLayer::radiolink_broadcast_packet(exploration::P2PPacket *packet) {
 	// TODO()
 }
 
-void Porting::radiolink_broadcast_packet(exploration::P2PPacket *packet) {
+void DroneLayer::DroneLayer::system_wait_start() {
 	// TODO()
 }
 
-void Porting::Porting::system_wait_start() {
+void DroneLayer::delay_ticks(uint32_t ticks) {
 	// TODO()
 }
 
-void Porting::delay_ticks(uint32_t ticks) {
+void DroneLayer::commander_set_point(exploration::setpoint_t *sp, int prio) {
 	// TODO()
 }
 
-void Porting::commander_set_point(exploration::setpoint_t *sp, int prio) {
-	// TODO()
-}
-
-std::uint64_t Porting::config_block_radio_address() {
+std::uint64_t DroneLayer::config_block_radio_address() {
 	return 0; // TODO()
 }
 
-std::uint8_t Porting::deck_bc_multiranger() {
+std::uint8_t DroneLayer::deck_bc_multiranger() {
 	return 0; // TODO()
 }
 
-std::uint8_t Porting::deck_bc_flow2() {
+std::uint8_t DroneLayer::deck_bc_flow2() {
 	return 0; // TODO()
 }
 
-std::uint8_t Porting::radio_rssi() {
+std::uint8_t DroneLayer::radio_rssi() {
 	return 0; // TODO()
 }
 
-std::float_t Porting::kalman_state_z() {
+std::float_t DroneLayer::kalman_state_z() {
 	return 0; // TODO()
 }
 
-std::float_t Porting::stabilizer_yaw() {
+std::float_t DroneLayer::stabilizer_yaw() {
 	return 0; // TODO()
 }
 
-std::float_t Porting::range_front() {
+std::float_t DroneLayer::range_front() {
 	return 0; // TODO()
 }
 
-std::float_t Porting::range_left() {
+std::float_t DroneLayer::range_left() {
 	return 0; // TODO()
 }
 
-std::float_t Porting::range_back() {
+std::float_t DroneLayer::range_back() {
 	return 0; // TODO()
 }
 
-std::float_t Porting::range_right() {
+std::float_t DroneLayer::range_right() {
 	return 0; // TODO()
 }
 
-std::float_t Porting::range_up() {
+std::float_t DroneLayer::range_up() {
 	return 0; // TODO()
 }
 
