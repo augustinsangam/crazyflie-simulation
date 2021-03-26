@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <exception>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <ostream>
 #include <random>
@@ -51,7 +52,7 @@
 /* args::CCI_CrazyflieDistanceScannerSensor */
 #include <argos3/plugins/robots/crazyflie/control_interface/ci_crazyflie_distance_scanner_sensor.h>
 
-static uint16_t mainId = 0; // NOLINT
+static uint16_t mainId = 1; // NOLINT
 static const double PI = 3.141582654;
 
 class CCrazyflieSensing : public argos::CCI_Controller { // NOLINT
@@ -182,10 +183,8 @@ public:
 			    static_cast<std::uint16_t>((iterDistRead++)->second)};
 		}
 
-		// spdlog::info(std::to_string(id_) +
-		//              " -> (x: " + std::to_string(position.GetX()) +
-		//              " y: " + std::to_string(position.GetY()) +
-		//              " z: " + std::to_string(position.GetZ()) + ")");
+		spdlog::debug("{} -> (x: {}, y: {}, z: {})", id_, position.GetX(),
+		              position.GetY(), position.GetZ());
 		// Update drone status
 		Vec4 position_vec4 = Vec4(static_cast<std::float_t>(position.GetX()),
 		                          static_cast<std::float_t>(position.GetY()),
@@ -226,12 +225,23 @@ public:
 			}
 			spdlog::info("Received command {}", *cmd);
 			switch (*cmd) {
-			case cmd::take_off:
+			case cmd::take_off: {
+				spdlog::info("take_off received");
+				// TODO delete pointer somewhere
+				auto *p = new exploration::P2PPacket{};
+				p->size = 0xff;
+				p->rssi = 0x80;
+				// p->port = 0x63;
+				p->data[0] = 0x63;
+				p->data[1] = 0x01;
+				sm_.p2p_callback_handler(p);
 				rt_status_.enable();
 				break;
-			case cmd::land:
+			}
+			case cmd::land: {
 				rt_status_.disable();
 				break;
+			}
 			default:
 				break;
 			}
@@ -302,22 +312,27 @@ void DroneLayer::delay_ms(uint32_t t_ms) { usleep(t_ms * 1000); }
 void DroneLayer::commander_set_point(exploration::setpoint_t *sp, int prio) {
 	auto *cf = reinterpret_cast<CCrazyflieSensing *>(ctx_);
 
+	auto angle = sp->attitudeRate.yaw * PI / 180;
+	/* yaws */
+	if (sp->mode.yaw == exploration::modeVelocity) {
+		spdlog::debug("yaw-relative: {}", angle);
+		cf->m_pcPropellers->SetRelativeYaw(
+		    argos::CRadians(static_cast<double>(angle)));
+	} else if (sp->mode.yaw == exploration::modeAbs) {
+		spdlog::debug("yaw-absolute {}", angle);
+		cf->m_pcPropellers->SetAbsoluteYaw(
+		    argos::CRadians(static_cast<double>(angle)));
+	}
+
 	/* take_of/land */
 	if (sp->mode.x == exploration::modeVelocity &&
 	    sp->mode.y == exploration::modeVelocity &&
 	    sp->mode.z == exploration::modeVelocity) {
+		spdlog::debug("take-off/land-relative");
 		cf->m_pcPropellers->SetRelativePosition(
 		    argos::CVector3(static_cast<double>(sp->velocity.x),
 		                    static_cast<double>(sp->velocity.y),
 		                    static_cast<double>(sp->velocity.z)));
-	}
-
-	if (sp->mode.yaw == exploration::modeVelocity) {
-		cf->m_pcPropellers->SetRelativeYaw(
-		    argos::CRadians(static_cast<double>(sp->attitudeRate.yaw)));
-	} else if (sp->mode.yaw == exploration::modeAbs) {
-		cf->m_pcPropellers->SetAbsoluteYaw(
-		    argos::CRadians(static_cast<double>(sp->attitudeRate.yaw)));
 	}
 
 	/* hover */
@@ -325,6 +340,7 @@ void DroneLayer::commander_set_point(exploration::setpoint_t *sp, int prio) {
 	    sp->mode.y == exploration::modeVelocity &&
 	    sp->mode.z == exploration::modeAbs && sp->velocity.x == 0.0F &&
 	    sp->velocity.y == 0.0F && sp->position.z != 0.0F) {
+		spdlog::debug("hover");
 		// TODO
 		const auto &position = cf->m_pcPos->GetReading().Position;
 		const auto &orientation = cf->m_pcPos->GetReading().Orientation;
@@ -333,17 +349,23 @@ void DroneLayer::commander_set_point(exploration::setpoint_t *sp, int prio) {
 		cf->m_pcPropellers->SetAbsolutePosition(argos::CVector3(
 		    static_cast<double>(cd.delta_x), static_cast<double>(cd.delta_y),
 		    static_cast<double>(cd.z)));
+	} else if (sp->mode.x == exploration::modeVelocity &&
+	           sp->mode.y == exploration::modeVelocity &&
+	           sp->mode.z == exploration::modeAbs) {
+		spdlog::debug("velocity_command: {}", sp->velocity.x);
+		auto x = sp->velocity.x / 16;
+		auto y = sp->velocity.y / 16;
+
+		cf->m_pcPropellers->SetRelativePosition(
+		    argos::CVector3(static_cast<double>(x), static_cast<double>(y),
+		                    static_cast<double>(0)));
 	}
 
-	/* vel_command */
-	if (sp->mode.x == exploration::modeVelocity &&
-	    sp->mode.y == exploration::modeVelocity &&
-	    sp->mode.z == exploration::modeAbs && sp->velocity.x != 0.0F &&
-	    sp->velocity.y != 0.0F && sp->position.z != 0.0F) {
-		// TODO
-		cf->m_pcPropellers->SetRelativePosition(argos::CVector3(
-		    static_cast<double>(sp->velocity.x),
-		    static_cast<double>(sp->velocity.y), static_cast<double>(0)));
+	/* shut_off_engines */
+	if (sp->mode.x == exploration::modeDisable &&
+	    sp->mode.y == exploration::modeDisable &&
+	    sp->mode.z == exploration::modeDisable) {
+		spdlog::debug("mode_disable");
 	}
 }
 
@@ -412,27 +434,34 @@ float get_distance_sensor(CCrazyflieSensing *cf, uint8_t sensor_index) {
 
 std::float_t DroneLayer::range_front() {
 	auto *cf = reinterpret_cast<CCrazyflieSensing *>(ctx_);
-	return get_distance_sensor(cf, 0);
+	auto val = std::min(1.0F, get_distance_sensor(cf, 1) / 100);
+	spdlog::debug("f: {}", val);
+	return val;
 }
 
 std::float_t DroneLayer::range_left() {
 	auto *cf = reinterpret_cast<CCrazyflieSensing *>(ctx_);
-	return get_distance_sensor(cf, 1);
+	auto val = std::min(1.0F, get_distance_sensor(cf, 0) / 100);
+	spdlog::debug("l: {}", val);
+	return val;
 }
 
 std::float_t DroneLayer::range_back() {
 	auto *cf = reinterpret_cast<CCrazyflieSensing *>(ctx_);
-	return get_distance_sensor(cf, 2);
+	auto val = std::min(1.0F, get_distance_sensor(cf, 2) / 100);
+	spdlog::debug("b: {}", val);
+	return val;
 }
 
 std::float_t DroneLayer::range_right() {
 	auto *cf = reinterpret_cast<CCrazyflieSensing *>(ctx_);
-	return get_distance_sensor(cf, 3);
+	auto val = std::min(1.0F, get_distance_sensor(cf, 3) / 100);
+	spdlog::debug("r: {}", val);
+	return val;
 }
 
 std::float_t DroneLayer::range_up() {
-	// TODO
-	spdlog::error("Up sensor not implemented yet");
+	// TODO Up sensor not implemented yet"
 	return 1.0;
 }
 

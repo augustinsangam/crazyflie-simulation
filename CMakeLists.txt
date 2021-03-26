@@ -42,6 +42,7 @@ set(EXPLORATION_METHOD 1)
 set(EXPLORATION_DRONE_INITIALISATION_DELAY 0)
 add_subdirectory("./exploration")
 target_compile_options(exploration PRIVATE "${FPIC}")
+target_link_libraries(exploration PRIVATE spdlog::spdlog)
 
 add_library(controller SHARED)
 target_compile_options(controller PRIVATE "${FPIC}")
@@ -55,4 +56,5 @@ target_sources(controller PRIVATE
 	"./src/Decoder.cpp"
 	"./src/Proxy.cpp"
 	"./src/RTStatus.cpp"
+	"./src/RSSIBeacon.cpp"
 	"./src/main.cpp")
