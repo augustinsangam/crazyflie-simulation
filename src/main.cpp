@@ -64,8 +64,12 @@ private:
 		state_machine,
 		idle
 	};
-	// 8 ticks per second
-	static constexpr const uint8_t tick_rate_{16};
+
+	static constexpr const uint8_t tick_rate_{128};
+
+	static constexpr const uint8_t tick_tcp_send_{64};
+	static constexpr const uint8_t tick_tcp_recv_{65};
+	static constexpr const uint8_t tick_p2p_handler_{66};
 
 	uint32_t tick_count_{};
 
@@ -98,6 +102,10 @@ public:
 	FlowDeck flow_deck_{};
 
 	RSSIBeacon rssi_beacon_{};
+
+	argos::CVector3 target_position_{};
+	argos::CRadians target_orientation_{};
+	bool stabilize_{false};
 
 	/* Class constructor. */
 	CCrazyflieSensing()
@@ -142,6 +150,14 @@ public:
 		             " y: " + std::to_string(cPos.GetY()) +
 		             " z: " + std::to_string(cPos.GetZ()) + ")");
 		spdlog::info("Init OK");
+		auto *p = new exploration::P2PPacket{};
+		p->size = 0xff;
+		p->rssi = 0x80;
+		// p->port = 0x63;
+		p->data[0] = 0x63;
+		p->data[1] = 0x01;
+		sm_.p2p_callback_handler(p);
+		rt_status_.enable();
 	}
 
 	/*
@@ -156,6 +172,8 @@ public:
 		// Position
 		const auto &position = m_pcPos->GetReading().Position;
 		const auto &orientation = m_pcPos->GetReading().Orientation;
+		argos::CRadians yaw, y_angle, x_angle;
+		orientation.ToEulerAngles(yaw, y_angle, x_angle);
 
 		// FlowDeck v2
 		// https://www.bitcraze.io/products/flow-deck-v2/
@@ -183,8 +201,9 @@ public:
 			    static_cast<std::uint16_t>((iterDistRead++)->second)};
 		}
 
-		spdlog::debug("{} -> (x: {}, y: {}, z: {})", id_, position.GetX(),
-		              position.GetY(), position.GetZ());
+		spdlog::debug("{} -> (x: {}, y: {}, z: {}, yaw: {})", id_,
+		              position.GetX(), position.GetY(), position.GetZ(),
+		              yaw.GetValue());
 		// Update drone status
 		Vec4 position_vec4 = Vec4(static_cast<std::float_t>(position.GetX()),
 		                          static_cast<std::float_t>(position.GetY()),
@@ -193,20 +212,19 @@ public:
 
 		/* ############## Update actuators and communication ############## */
 
-		if (tick_count_ % 16 == 0 || tick_count_ % 16 == 8) {
+		switch (tick_count_ % tick_rate_) {
+		case 0:
 			current_operation_ = tcp_socket_communication_send;
-		} else if (tick_count_ % 16 == 3 || tick_count_ % 16 == 9 ||
-		           tick_count_ % 16 == 15) {
+			break;
+		case 1:
+			current_operation_ = tcp_socket_communication_recv;
+			break;
+		case 2:
+			current_operation_ = peer_to_peer_communication;
+			break;
+		default:
 			current_operation_ = state_machine;
-		} else {
-			if (current_operation_ != tcp_socket_communication_recv &&
-			    current_operation_ != peer_to_peer_communication) {
-				current_operation_ = tcp_socket_communication_recv;
-			} else if (current_operation_ == tcp_socket_communication_recv) {
-				current_operation_ = peer_to_peer_communication;
-			} else {
-				current_operation_ = tcp_socket_communication_recv;
-			}
+			break;
 		}
 
 		switch (current_operation_) {
@@ -248,7 +266,27 @@ public:
 			break;
 		}
 		case state_machine: {
-			sm_.step();
+			if (!stabilize_) {
+				sm_.step();
+				break;
+			}
+			double threshold_position = 0.05;
+			double threshold_orientation = 0.02;
+			if (std::abs(position.GetX() - target_position_.GetX()) <
+			        threshold_position &&
+			    std::abs(position.GetY() - target_position_.GetY()) <
+			        threshold_position &&
+			    std::abs(position.GetZ() - target_position_.GetZ()) <
+			        threshold_position) {
+				// std::abs(yaw.GetValue() - target_orientation_.GetValue()) <
+				//     threshold_orientation) {
+
+				// std::remainder((yaw.GetValue()), 2 * PI) -
+				//         std::remainder(target_orientation_.GetValue(), 2 *
+				//         PI) < :0.3614741770546977 - 0.36147417705475815,
+				//     threshold_orientation)
+				stabilize_ = false;
+			}
 			break;
 		}
 		case idle: {
@@ -312,61 +350,87 @@ void DroneLayer::delay_ms(uint32_t t_ms) { usleep(t_ms * 1000); }
 void DroneLayer::commander_set_point(exploration::setpoint_t *sp, int prio) {
 	auto *cf = reinterpret_cast<CCrazyflieSensing *>(ctx_);
 
-	auto angle = sp->attitudeRate.yaw * PI / 180;
-	/* yaws */
-	if (sp->mode.yaw == exploration::modeVelocity) {
-		spdlog::debug("yaw-relative: {}", angle);
-		cf->m_pcPropellers->SetRelativeYaw(
-		    argos::CRadians(static_cast<double>(angle)));
-	} else if (sp->mode.yaw == exploration::modeAbs) {
-		spdlog::debug("yaw-absolute {}", angle);
-		cf->m_pcPropellers->SetAbsoluteYaw(
-		    argos::CRadians(static_cast<double>(angle)));
-	}
+	spdlog::debug(
+	    "Setpoint:\nx: ({}, {}), \ny: ({}, {}), \nz: ({}, {}) \nyaw: ({}, {})",
+	    sp->mode.x, sp->velocity.x, sp->mode.y, sp->velocity.y, sp->mode.z,
+	    sp->velocity.z, sp->mode.yaw, sp->attitudeRate.yaw * PI / 180);
 
-	/* take_of/land */
-	if (sp->mode.x == exploration::modeVelocity &&
-	    sp->mode.y == exploration::modeVelocity &&
-	    sp->mode.z == exploration::modeVelocity) {
-		spdlog::debug("take-off/land-relative");
-		cf->m_pcPropellers->SetRelativePosition(
-		    argos::CVector3(static_cast<double>(sp->velocity.x),
-		                    static_cast<double>(sp->velocity.y),
-		                    static_cast<double>(sp->velocity.z)));
-	}
+	const auto &position = cf->m_pcPos->GetReading().Position;
+	const auto &orientation = cf->m_pcPos->GetReading().Orientation;
+	argos::CRadians yaw, y_angle, x_angle;
+	orientation.ToEulerAngles(yaw, y_angle, x_angle);
+	argos::CVector3 new_position =
+	    argos::CVector3(position.GetX(), position.GetY(), position.GetZ());
+	argos::CRadians new_orientation = yaw;
 
-	/* hover */
-	if (sp->mode.x == exploration::modeVelocity &&
-	    sp->mode.y == exploration::modeVelocity &&
-	    sp->mode.z == exploration::modeAbs && sp->velocity.x == 0.0F &&
-	    sp->velocity.y == 0.0F && sp->position.z != 0.0F) {
-		spdlog::debug("hover");
-		// TODO
-		const auto &position = cf->m_pcPos->GetReading().Position;
-		const auto &orientation = cf->m_pcPos->GetReading().Orientation;
-		CameraData cd =
-		    cf->flow_deck_.getInitPositionDelta(position, orientation);
-		cf->m_pcPropellers->SetAbsolutePosition(argos::CVector3(
-		    static_cast<double>(cd.delta_x), static_cast<double>(cd.delta_y),
-		    static_cast<double>(cd.z)));
-	} else if (sp->mode.x == exploration::modeVelocity &&
-	           sp->mode.y == exploration::modeVelocity &&
-	           sp->mode.z == exploration::modeAbs) {
-		spdlog::debug("velocity_command: {}", sp->velocity.x);
-		auto x = sp->velocity.x / 16;
-		auto y = sp->velocity.y / 16;
-
-		cf->m_pcPropellers->SetRelativePosition(
-		    argos::CVector3(static_cast<double>(x), static_cast<double>(y),
-		                    static_cast<double>(0)));
-	}
-
-	/* shut_off_engines */
 	if (sp->mode.x == exploration::modeDisable &&
 	    sp->mode.y == exploration::modeDisable &&
-	    sp->mode.z == exploration::modeDisable) {
-		spdlog::debug("mode_disable");
+	    sp->mode.z == exploration::modeDisable &&
+	    sp->mode.yaw == exploration::modeDisable) {
+		new_position.SetZ(0);
+		new_orientation = yaw;
 	}
+
+	if (sp->mode.x == exploration::modeDisable) {
+		// do nothing
+	} else if (sp->mode.x == exploration::modeVelocity) {
+		auto x = sp->velocity.x;
+		new_position.SetX(new_position.GetX() + x);
+	} else if (sp->mode.x == exploration::modeAbs) {
+		spdlog::error("this should never happen ! (sp->mode.x = modeAbs)");
+		// does not happen
+	}
+
+	if (sp->mode.y == exploration::modeDisable) {
+		// do nothing
+	} else if (sp->mode.y == exploration::modeVelocity) {
+		auto y = sp->velocity.y;
+		new_position.SetY(new_position.GetY() + y);
+	} else if (sp->mode.y == exploration::modeAbs) {
+		spdlog::error("this should never happen ! (sp->mode.y = modeAbs)");
+		// does not happen
+	}
+
+	if (sp->mode.z == exploration::modeDisable) {
+		new_position.SetZ(0);
+	} else if (sp->mode.z == exploration::modeVelocity) {
+		auto z = sp->velocity.z;
+		new_position.SetZ(new_position.GetZ() + z);
+	} else if (sp->mode.z == exploration::modeAbs) {
+		new_position.SetZ(sp->position.z);
+	}
+
+	auto angle = sp->attitudeRate.yaw * PI / 180;
+	if (sp->mode.yaw == exploration::modeDisable) {
+		// do nothing
+	} else if (sp->mode.yaw == exploration::modeVelocity) {
+		new_orientation += argos::CRadians(angle);
+	} else if (sp->mode.yaw == exploration::modeAbs) {
+		spdlog::error("this should never happen ! (sp->mode.yaw = modeAbs)");
+		// does not happen
+	}
+
+	if (sp->mode.x == exploration::modeVelocity &&
+	    sp->mode.y == exploration::modeVelocity && sp->velocity.x == 0 &&
+	    sp->velocity.y == 0 && position.GetZ() >= 0.28) {
+		cf->stabilize_ = true;
+		cf->target_position_ = argos::CVector3(
+		    position.GetX() - 0.02, position.GetY(), position.GetZ());
+		new_position = position;
+
+		// cf->target_orientation_ = argos::CRadians(yaw.GetValue() + angle);
+		// new_orientation = argos::CRadians(yaw.GetValue() + angle);
+		cf->target_orientation_ = yaw;
+		new_orientation = yaw;
+
+		spdlog::info("STABILIZE: x:{}, y:{}, z:{}, yaw:{}",
+		             cf->target_position_.GetX(), cf->target_position_.GetY(),
+		             cf->target_position_.GetZ(),
+		             cf->target_orientation_.GetValue());
+	}
+
+	cf->m_pcPropellers->SetAbsolutePosition(new_position);
+	cf->m_pcPropellers->SetAbsoluteYaw(new_orientation);
 }
 
 std::uint64_t DroneLayer::config_block_radio_address() {
@@ -404,7 +468,7 @@ std::float_t DroneLayer::stabilizer_yaw() {
 	                            static_cast<float_t>(PI));
 }
 
-float get_distance_sensor(CCrazyflieSensing *cf, uint8_t sensor_index) {
+double get_distance_sensor(CCrazyflieSensing *cf, uint8_t sensor_index) {
 	/*
 	 * From ci_crazyflie_distance_scanner_sensor.h
 	 *      front
@@ -423,9 +487,11 @@ float get_distance_sensor(CCrazyflieSensing *cf, uint8_t sensor_index) {
 		for (uint8_t i = 0; i < sensor_index; i++) {
 			iterDistRead++;
 		}
-		return static_cast<float>((iterDistRead++)->second);
+		return iterDistRead->second < 0
+		           ? 1
+		           : std::min(1.0, iterDistRead->second / 100);
 	}
-	float default_value = 0.0;
+	double default_value = 0.0;
 	spdlog::error("Unable to read from the multiranger sensors! Returning a "
 	              "default value (" +
 	              std::to_string(default_value) + ").");
@@ -434,28 +500,28 @@ float get_distance_sensor(CCrazyflieSensing *cf, uint8_t sensor_index) {
 
 std::float_t DroneLayer::range_front() {
 	auto *cf = reinterpret_cast<CCrazyflieSensing *>(ctx_);
-	auto val = std::min(1.0F, get_distance_sensor(cf, 1) / 100);
+	auto val = get_distance_sensor(cf, 1);
 	spdlog::debug("f: {}", val);
 	return val;
 }
 
 std::float_t DroneLayer::range_left() {
 	auto *cf = reinterpret_cast<CCrazyflieSensing *>(ctx_);
-	auto val = std::min(1.0F, get_distance_sensor(cf, 0) / 100);
+	auto val = get_distance_sensor(cf, 2);
 	spdlog::debug("l: {}", val);
 	return val;
 }
 
 std::float_t DroneLayer::range_back() {
 	auto *cf = reinterpret_cast<CCrazyflieSensing *>(ctx_);
-	auto val = std::min(1.0F, get_distance_sensor(cf, 2) / 100);
+	auto val = get_distance_sensor(cf, 3);
 	spdlog::debug("b: {}", val);
 	return val;
 }
 
 std::float_t DroneLayer::range_right() {
 	auto *cf = reinterpret_cast<CCrazyflieSensing *>(ctx_);
-	auto val = std::min(1.0F, get_distance_sensor(cf, 3) / 100);
+	auto val = get_distance_sensor(cf, 0);
 	spdlog::debug("r: {}", val);
 	return val;
 }
