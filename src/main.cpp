@@ -7,6 +7,7 @@
 #include "SensorData.hpp"
 #include "SharedQueue.hpp"
 #include "Vec4.hpp"
+#include "cmd/T.hpp"
 #include "conn/Conn.hpp"
 #include "gen_buf.hpp"
 #include <cstdint>
@@ -121,6 +122,8 @@ public:
 		             " y: " + std::to_string(cPos.GetY()) +
 		             " z: " + std::to_string(cPos.GetZ()) + ")");
 		spdlog::info("Init OK");
+		brain_.setState(brain::State::take_off);
+		rt_status_.enable();
 	}
 
 	/*
@@ -164,7 +167,8 @@ public:
 		Vec4 position_vec4 = Vec4(static_cast<std::float_t>(position.GetX()),
 		                          static_cast<std::float_t>(position.GetY()),
 		                          static_cast<std::float_t>(position.GetZ()));
-		rt_status_.update(static_cast<std::float_t>(battery), position_vec4);
+		rt_status_.update(static_cast<std::float_t>(battery), position_vec4,
+		                  sensor_data);
 
 		if (tick_count_ % tick_pulse_ == 0) {
 			proxy_.send(rt_status_.encode());
@@ -173,7 +177,7 @@ public:
 			if (cmd) {
 				spdlog::info("Received command {}", *cmd);
 				switch (*cmd) {
-				case cmd::take_off:
+				case cmd::start_mission:
 					brain_.setState(brain::State::take_off);
 					rt_status_.enable();
 					break;
@@ -207,14 +211,6 @@ public:
 				m_pcPropellers->SetAbsoluteYaw(argos::CRadians(next_move->yaw));
 			}
 		}
-	}
-
-	std::string trunc(float val, int numDigits) {
-		std::string output = std::to_string(val).substr(0, numDigits + 1);
-		if (output.find('.') == std::string::npos || output.back() == '.') {
-			output.pop_back();
-		}
-		return output;
 	}
 
 	/*

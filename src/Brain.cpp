@@ -1,4 +1,5 @@
 #include "Brain.hpp"
+#include "SensorData.hpp"
 #include "Vec4.hpp"
 #include <argos3/core/utility/math/angles.h>
 #include <bits/stdint-uintn.h>
@@ -17,8 +18,9 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 	float_t y = cd->delta_y + initial_pos_.y();
 	float_t z = cd->z + initial_pos_.z();
 
-	uint16_t sensor_wall_distance_thresh = 15;
-	float_t PI = 3.141593F;
+	uint16_t sensor_wall_distance_thresh_front = 15;
+	uint16_t sensor_wall_distance_thresh_side =
+	    sensor_wall_distance_thresh_front - 10;
 	// spdlog::info(
 	//     "f: " + std::to_string(sd->front) + " l: " + std::to_string(sd->left)
 	//     + " b: " + std::to_string(sd->back) + " r: " +
@@ -46,7 +48,7 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 	case State::take_off:
 		// spdlog::info("Take Off");
 		if (cd->z >= 0.5F) {
-			setupStabilization(Vec4(x, y, z), cd->yaw, State::auto_pilot);
+			setupStabilization(Vec4(x, y, z), cd->yaw, State::auto_pilot, *sd);
 			state_ = stabilize;
 		}
 		nm = {Vec4(0, 0, 0.5F), true, desiredAngle_};
@@ -90,22 +92,25 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 		// spdlog::info("dodge");
 		if (!dodging_) {
 			// "Starting rotation"
-			desiredAngle_ = cd->yaw + PI / 12.0F;
+			float_t delta_angle =
+			    sd->right < sd->left ? PI / 12.0F : -(PI / 12.0F);
+			desiredAngle_ = cd->yaw + delta_angle;
 			if (desiredAngle_ > PI) {
 				desiredAngle_ -= 2 * PI;
+			} else if (desiredAngle_ < -PI) {
+				desiredAngle_ += 2 * PI;
 			}
-			nm = {Vec4(x, y, z), false,
-			      cd->yaw + static_cast<float_t>(PI / 12)};
+			nm = {Vec4(x, y, z), false, cd->yaw + delta_angle};
 			dodging_ = true;
 		} else {
-			// spdlog::info("Rotating (current " + std::to_string(cd->yaw) +
-			//              " target " + std::to_string(desiredAngle_) + ")");
+			spdlog::info("Rotating (current " + std::to_string(cd->yaw) +
+			             " target " + std::to_string(desiredAngle_) + ")");
 			if (desiredAngle_ - 0.05F < cd->yaw &&
 			    cd->yaw < desiredAngle_ + 0.05F) {
 				// "Reached target angle. Stopping rotation"
 				overwrite = true;
 				nm = {Vec4(x, y, z), false, cd->yaw};
-				if (sd->front > 30) {
+				if (sd->front > sensor_wall_distance_thresh_front) {
 					// "Nothing in front of me, auto_pilot now"
 					state_ = auto_pilot;
 				}
@@ -125,8 +130,10 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 
 	case State::auto_pilot:
 		// spdlog::info("auto_pilot");
-		if (sd->front < sensor_wall_distance_thresh) {
-			setupStabilization(Vec4(x, y, z), cd->yaw, State::dodge);
+		if (sd->front < sensor_wall_distance_thresh_front ||
+		    sd->left < sensor_wall_distance_thresh_side ||
+		    sd->right < sensor_wall_distance_thresh_side) {
+			setupStabilization(Vec4(x, y, z), cd->yaw, State::dodge, *sd);
 			state_ = stabilize;
 			break;
 		}
@@ -144,10 +151,11 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 }
 
 void Brain::setupStabilization(Vec4 position, float_t orientation,
-                               State next_state) {
+                               State next_state, const SensorData &sd) {
 	desiredPosition_ = position;
 	desiredAngle_ = orientation;
 	afterStab_ = next_state;
+	delta_angle_dodge_ = sd.right < sd.left ? PI / 12.0F : -(PI / 12.0F);
 }
 
 } // namespace brain

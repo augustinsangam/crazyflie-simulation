@@ -22,11 +22,13 @@ enum State { idle, take_off, land, auto_pilot, dodge, stabilize };
 
 class Brain {
 
+	float_t PI = 3.141593F;
 	State state_{};
 	State afterStab_{};
 	bool dodging_ = false;
 	uint16_t id_;
 	Vec4 initial_pos_ = Vec4(0);
+	float_t delta_angle_dodge_ = 0.0;
 
 	const CameraData *cd_{};
 	const SensorData *sd_{};
@@ -43,7 +45,7 @@ class Brain {
 	void takeOff();
 	void doSquares();
 	void setupStabilization(Vec4 position, float_t orientation,
-	                        State next_state);
+	                        State next_state, const SensorData &sd);
 
 public:
 	explicit Brain(uint16_t id) : id_(id){};

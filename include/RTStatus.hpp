@@ -1,3 +1,4 @@
+#include "SensorData.hpp"
 #include "Vec4.hpp"
 #include <cmath>
 #include <string>
@@ -8,6 +9,7 @@ private:
 	std::string name_;
 	std::float_t speed_;
 	std::float_t battery_;
+	SensorData sensor_data_;
 	Vec4 pos_;
 
 public:
@@ -17,7 +19,7 @@ public:
 
 	const std::string &get_name() const { return name_; }
 
-	void update(std::float_t battery, const Vec4 &pos);
+	void update(std::float_t battery, const Vec4 &pos, const SensorData &sd);
 
 	bool isFlying() const { return flying_; }
 
@@ -32,4 +34,6 @@ public:
 	void disable();
 
 	void print() const;
+
+	template <typename T> static T trunc(T val, int numDigits);
 };

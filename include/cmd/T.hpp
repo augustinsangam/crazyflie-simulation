@@ -11,6 +11,7 @@ enum T : std::int_fast8_t {
 	start_mission,
 	land,
 	lighten,
+	return_to_base,
 	darken,
 	take_off,
 };

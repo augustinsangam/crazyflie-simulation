@@ -14,11 +14,11 @@ private:
 	    {"", cmd::none},
 	    {"pulse", cmd::pulse},
 	    {"startMission", cmd::start_mission},
+	    {"returnToBase", cmd::return_to_base},
 	    {"land", cmd::land},
 	    {"lighten", cmd::lighten},
 	    {"darken", cmd::darken},
-	    {"takeOff", cmd::take_off},
-	    {"startMission", cmd::start_mission}};
+	    {"takeOff", cmd::take_off}};
 
 public:
 	static std::string cmdo_cstr(cmd::T cmd) {

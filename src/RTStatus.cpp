@@ -1,9 +1,12 @@
 #include "RTStatus.hpp"
 #include "Decoder.hpp"
+#include "SensorData.hpp"
 #include "Vec3.hpp"
 #include <array>
+#include <cmath>
 #include <ctime>
 #include <iostream>
+#include <math.h>
 #include <utility>
 
 #include <tao/json.hpp>
@@ -15,7 +18,7 @@
  */
 RTStatus::RTStatus(std::string name)
     : flying_{false}, name_(std::move(name)), speed_{0}, battery_{100},
-      pos_(0) {}
+      sensor_data_(), pos_(0) {}
 /**
  * @brief Encodes the current status of the drone as json
  *
@@ -29,9 +32,14 @@ std::string RTStatus::encode() {
 	     {{"timestamp", std::time(nullptr)},
 	      {"name", name_},
 	      {"flying", flying_},
-	      {"battery", battery_},
-	      {"speed", speed_},
-	      {"position", tao::json::value::array({pos_.x(), pos_.y(), pos_.z()})},
+	      {"battery", trunc<float_t>(battery_, 2)},
+	      {"speed", trunc<float_t>(speed_, 2)},
+	      {"position", tao::json::value::array({trunc<float_t>(pos_.x(), 2),
+	                                            trunc<float_t>(pos_.y(), 2),
+	                                            trunc<float_t>(pos_.z(), 2)})},
+	      {"ranges",
+	       tao::json::value::array({sensor_data_.front, sensor_data_.left,
+	                                sensor_data_.back, sensor_data_.right})},
 	      {"ledOn", false},
 	      {"real", false}}}};
 
@@ -44,7 +52,8 @@ std::string RTStatus::encode() {
  * @param battery
  * @param pos
  */
-void RTStatus::update(std::float_t battery, const Vec4 &pos) {
+void RTStatus::update(std::float_t battery, const Vec4 &pos,
+                      const SensorData &sd) {
 	if (!flying_) {
 		return;
 	}
@@ -53,6 +62,7 @@ void RTStatus::update(std::float_t battery, const Vec4 &pos) {
 	/* 8 is the tickrate in <framework> in config.xml */
 	speed_ = Vec3::norm(Vec3::sub(pos, pos_)) / 8;
 	pos_ = pos;
+	sensor_data_ = sd;
 }
 
 /**
@@ -76,4 +86,9 @@ void RTStatus::print() const {
 	          << "battery_level: " << battery_ << std::endl
 	          << "pos: " << pos_.x() << " " << pos_.y() << " " << pos_.z()
 	          << std::endl;
+}
+
+template <typename T> T RTStatus::trunc(T val, int numDigits) {
+	// TODO
+	return val;
 }
