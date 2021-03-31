@@ -37,6 +37,7 @@ std::string RTStatus::encode() {
 	      {"position", tao::json::value::array({trunc<float_t>(pos_.x(), 2),
 	                                            trunc<float_t>(pos_.y(), 2),
 	                                            trunc<float_t>(pos_.z(), 2)})},
+	      {"yaw", trunc<float_t>(yaw_, 2)},
 	      {"ranges",
 	       tao::json::value::array({sensor_data_.front, sensor_data_.left,
 	                                sensor_data_.back, sensor_data_.right})},
@@ -52,7 +53,7 @@ std::string RTStatus::encode() {
  * @param battery
  * @param pos
  */
-void RTStatus::update(std::float_t battery, const Vec4 &pos,
+void RTStatus::update(std::float_t battery, const Vec4 &pos, const float_t &yaw,
                       const SensorData &sd) {
 	if (!flying_) {
 		return;
@@ -63,6 +64,7 @@ void RTStatus::update(std::float_t battery, const Vec4 &pos,
 	speed_ = Vec3::norm(Vec3::sub(pos, pos_)) / 8;
 	pos_ = pos;
 	sensor_data_ = sd;
+	yaw_ = yaw;
 }
 
 /**

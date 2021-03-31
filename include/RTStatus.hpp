@@ -11,6 +11,7 @@ private:
 	std::float_t battery_;
 	SensorData sensor_data_;
 	Vec4 pos_;
+	float_t yaw_;
 
 public:
 	explicit RTStatus(std::string name);
@@ -19,7 +20,8 @@ public:
 
 	const std::string &get_name() const { return name_; }
 
-	void update(std::float_t battery, const Vec4 &pos, const SensorData &sd);
+	void update(std::float_t battery, const Vec4 &pos, const float_t &yaw,
+	            const SensorData &sd);
 
 	bool isFlying() const { return flying_; }
 

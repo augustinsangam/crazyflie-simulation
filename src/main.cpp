@@ -140,6 +140,8 @@ public:
 		// Position
 		const auto &position = m_pcPos->GetReading().Position;
 		const auto &orientation = m_pcPos->GetReading().Orientation;
+		argos::CRadians yaw, y_angle, x_angle;
+		orientation.ToEulerAngles(yaw, y_angle, x_angle);
 
 		// FlowDeck v2
 		// https://www.bitcraze.io/products/flow-deck-v2/
@@ -171,7 +173,7 @@ public:
 		                          static_cast<std::float_t>(position.GetY()),
 		                          static_cast<std::float_t>(position.GetZ()));
 		rt_status_.update(static_cast<std::float_t>(battery), position_vec4,
-		                  sensor_data);
+		                  static_cast<float_t>(yaw.GetValue()), sensor_data);
 
 		if (tick_count_ % tick_pulse_ == 0) {
 			proxy_.send(rt_status_.encode());
