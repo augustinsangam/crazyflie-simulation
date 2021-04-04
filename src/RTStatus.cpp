@@ -44,7 +44,7 @@ std::string RTStatus::encode() {
 	      {"ledOn", false},
 	      {"real", false}}}};
 
-	return tao::json::to_string(pulse);
+	return tao::json::to_string(pulse).append("\n");
 }
 
 /**
