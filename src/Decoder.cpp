@@ -1,4 +1,5 @@
 #include "Decoder.hpp"
+#include "cmd/T.hpp"
 
 #include <spdlog/common.h>
 #include <spdlog/spdlog.h>
@@ -16,7 +17,8 @@ Decoder::decode(std::pair<std::unique_ptr<char[]>, std::size_t> &&msg) {
 
 		const auto it = map_.find(t);
 		return it != map_.end() ? it->second : cmd::unknown;
-	} catch (const tao::json::pegtl::parse_error &e) {
-		spdlog::warn("Invalid json received ({}) : {}", e.what(), msg.first);
+	} catch (...) {
+		spdlog::warn("Invalid json received : {}", msg.first.get());
+		return cmd::unknown;
 	}
 }

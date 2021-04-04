@@ -2,6 +2,7 @@
 #include <cstdlib> /* std::getenv */
 
 #include <spdlog/spdlog.h>
+#include <tao/json/external/pegtl/parse_error.hpp>
 #include <tao/json/from_string.hpp>
 
 static std::string get_env(const std::string &var, const std::string &val) {
@@ -68,20 +69,26 @@ void Proxy::send(std::string &&msg) {
 void Proxy::recv_cb(gen_buf_t &&msg) {
 	spdlog::trace("recv_cb entered");
 
-	const auto v = tao::json::from_string(msg.first.get(), msg.second);
+	try {
 
-	const auto &m = v.get_object();
+		const auto v = tao::json::from_string(msg.first.get(), msg.second);
 
-	const auto &name = m.at("data").at("name").get_string();
+		const auto &m = v.get_object();
 
-	const auto it = recv_boxes_.find(name);
-	if (it == recv_boxes_.end()) {
-		return;
+		const auto &name = m.at("data").at("name").get_string();
+
+		const auto it = recv_boxes_.find(name);
+		if (it == recv_boxes_.end()) {
+			return;
+		}
+
+		const auto &type = m.at("type").get_string();
+
+		const auto type_it = cmd_map.find(type);
+		auto cmd = type_it != cmd_map.end() ? type_it->second : cmd::unknown;
+		it->second->push(cmd);
+	} catch (const tao::json::pegtl::parse_error &e) {
+		spdlog::warn("Invalid json received ({}) : {}", e.what(),
+		             msg.first.get());
 	}
-
-	const auto &type = m.at("type").get_string();
-
-	const auto type_it = cmd_map.find(type);
-	auto cmd = type_it != cmd_map.end() ? type_it->second : cmd::unknown;
-	it->second->push(cmd);
 }
