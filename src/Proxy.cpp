@@ -1,9 +1,12 @@
 #include "Proxy.hpp"
+#include <bits/c++config.h>
+#include <cstddef>
 #include <cstdlib> /* std::getenv */
 
 #include <spdlog/spdlog.h>
 #include <tao/json/external/pegtl/parse_error.hpp>
 #include <tao/json/from_string.hpp>
+#include <vector>
 
 static std::string get_env(const std::string &var, const std::string &val) {
 	const auto *var_val = std::getenv(var.c_str());
@@ -69,24 +72,42 @@ void Proxy::send(std::string &&msg) {
 void Proxy::recv_cb(gen_buf_t &&msg) {
 	spdlog::trace("recv_cb entered");
 
-	try {
-
-		const auto v = tao::json::from_string(msg.first.get(), msg.second);
-
-		const auto &m = v.get_object();
-
-		const auto &name = m.at("data").at("name").get_string();
-
-		const auto it = recv_boxes_.find(name);
-		if (it == recv_boxes_.end()) {
-			return;
+	std::vector<size_t> msg_indexes;
+	for (size_t i = 0; i < msg.second; ++i) {
+		if (msg.first.get()[i] == '\n') {
+			spdlog::debug("\\n detected !");
+			msg_indexes.push_back(i);
 		}
+	}
 
-		const auto &type = m.at("type").get_string();
+	std::size_t old_index = 0;
 
-		const auto type_it = cmd_map.find(type);
-		auto cmd = type_it != cmd_map.end() ? type_it->second : cmd::unknown;
-		it->second->push(cmd);
+	try {
+		for (auto i : msg_indexes) {
+			const auto v = tao::json::from_string(&msg.first.get()[old_index],
+			                                      i - old_index);
+			old_index = i;
+
+			spdlog::debug("Message parsed, sending message {}", i);
+
+			const auto &m = v.get_object();
+
+			const auto &name = m.at("data").at("name").get_string();
+
+			const auto it = recv_boxes_.find(name);
+			if (it == recv_boxes_.end()) {
+				spdlog::debug("HEY");
+				return;
+			}
+
+			const auto &type = m.at("type").get_string();
+
+			const auto type_it = cmd_map.find(type);
+			auto cmd =
+			    type_it != cmd_map.end() ? type_it->second : cmd::unknown;
+			it->second->push(cmd);
+			spdlog::debug("Message pushed");
+		}
 	} catch (const tao::json::pegtl::parse_error &e) {
 		spdlog::warn("Invalid json received ({}) : {}", e.what(),
 		             msg.first.get());
