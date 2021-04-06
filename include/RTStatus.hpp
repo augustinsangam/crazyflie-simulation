@@ -39,8 +39,6 @@ public:
 
 	bool isFlying() const { return flying_; }
 
-	std::string getName();
-
 	void setPosition(Vec4 pos) { pos_ = pos; };
 
 	void setBattery(std::float_t battery) { battery_ = battery; };

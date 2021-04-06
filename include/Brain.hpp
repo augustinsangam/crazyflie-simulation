@@ -33,13 +33,14 @@ enum State {
 class Brain {
 
 	float_t PI = 3.141593F;
+	static constexpr double battery_threshold_ = 0.60;
 	State state_{};
 	State afterStab_{};
 	bool dodging_ = false;
 	bool avoiding_ = false;
 	uint16_t id_;
 	Vec4 initial_pos_ = Vec4(0);
-	bool target_position_is_set_ = false;
+	bool is_returning_to_base_ = false;
 	Vec4 auto_pilot_target_position_ = Vec4(0);
 
 	const CameraData *cd_{};
@@ -58,7 +59,7 @@ class Brain {
 	void doSquares();
 	void setupStabilization(Vec4 position, float_t orientation,
 	                        State next_state);
-	float computeDirectionToBase(const Vec4 &pos);
+	float computeDirectionToBase(const Vec4 &pos) const;
 
 public:
 	explicit Brain(uint16_t id) : id_(id){};
@@ -67,11 +68,12 @@ public:
 	State getState() { return state_; };
 
 	std::optional<NextMove> computeNextMove(const CameraData *cd,
-	                                        const SensorData *sd);
+	                                        const SensorData *sd,
+	                                        const double &battery_level);
 
 	void setInitialPosition(Vec4 pos) { initial_pos_ = pos; }
 
-	bool isReturningToBase() { return target_position_is_set_; }
+	bool isReturningToBase() { return is_returning_to_base_; }
 };
 
 } // namespace brain

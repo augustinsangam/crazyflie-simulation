@@ -88,7 +88,6 @@ void Conn::input_thread(Conn *conn) {
 			break;
 		}
 
-		spdlog::debug("Calling callback");
 		auto msg = make_pair(std::unique_ptr<char[]>(mem), rc);
 		conn->cb_(std::move(msg));
 	}

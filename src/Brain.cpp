@@ -12,16 +12,17 @@
 namespace brain {
 
 std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
-                                               const SensorData *sd) {
+                                               const SensorData *sd,
+                                               const double &battery_level) {
 	cd_ = cd;
 	sd_ = sd;
 	float_t x = cd->delta_x + initial_pos_.x();
 	float_t y = cd->delta_y + initial_pos_.y();
 	float_t z = cd->z + initial_pos_.z();
 
-	uint16_t sensor_wall_distance_thresh_front = 15;
+	uint16_t sensor_wall_distance_thresh_front = 20;
 	uint16_t sensor_wall_distance_thresh_side =
-	    sensor_wall_distance_thresh_front - 10;
+	    sensor_wall_distance_thresh_front - 15;
 	// spdlog::debug("f: {}, l: {}, b: {}, r: {}", sd->front, sd->left,
 	// sd->back,
 	//               sd->right);
@@ -36,6 +37,12 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 
 	NextMove nm{Vec4(0), true, desiredAngle_};
 	bool overwrite = false;
+
+	if (battery_level < battery_threshold_ && !is_returning_to_base_ &&
+	    state_ != State::idle) {
+		spdlog::info("[simulation_{}] low battery ({}%)", id_, battery_level);
+		setState(State::return_to_base);
+	}
 
 	switch (state_) {
 	case State::idle:
@@ -122,10 +129,10 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 		// spdlog::info("Land");
 		if (cd->z < 0.01F) {
 			state_ = State::idle;
-			target_position_is_set_ = false;
+			is_returning_to_base_ = false;
 		}
-		nm = {target_position_is_set_ ? auto_pilot_target_position_
-		                              : Vec4(x, y, 0),
+		nm = {is_returning_to_base_ ? auto_pilot_target_position_
+		                            : Vec4(x, y, 0),
 		      false, desiredAngle_};
 		break;
 
@@ -134,7 +141,7 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 		float angle = computeDirectionToBase(Vec4(x, y, z));
 		auto_pilot_target_position_ =
 		    Vec4(angle, initial_pos_.x(), initial_pos_.y(), 0);
-		target_position_is_set_ = true;
+		is_returning_to_base_ = true;
 		spdlog::info(
 		    "[simulation_{}] target position = x: {}, y: {}, angle: {}", id_,
 		    auto_pilot_target_position_.x(), auto_pilot_target_position_.y(),
@@ -206,14 +213,14 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 		    sd->left < sensor_wall_distance_thresh_side ||
 		    sd->right < sensor_wall_distance_thresh_side) {
 			setupStabilization(Vec4(x, y, z), cd->yaw,
-			                   target_position_is_set_ ? State::avoid_obstacle
-			                                           : State::dodge);
+			                   is_returning_to_base_ ? State::avoid_obstacle
+			                                         : State::dodge);
 			state_ = stabilize;
 			break;
 		}
 		nm = {Vec4(0, -0.03F, 0), true, desiredAngle_};
 		overwrite = true;
-		if (target_position_is_set_) {
+		if (is_returning_to_base_) {
 			if (auto_pilot_target_position_.x() - 0.03F < cd->delta_x &&
 			    cd->delta_x < auto_pilot_target_position_.x() + 0.03F &&
 			    auto_pilot_target_position_.y() - 0.03F < cd->delta_y &&
@@ -242,10 +249,9 @@ void Brain::setupStabilization(Vec4 position, float_t orientation,
 	afterStab_ = next_state;
 }
 
-float Brain::computeDirectionToBase(const Vec4 &pos) {
+float Brain::computeDirectionToBase(const Vec4 &pos) const {
 	const auto x = pos.x();
 	const auto y = pos.y();
-	const auto z = pos.z();
 	float angle;
 
 	if ((x < 0 && y < 0) || (x > 0 && y > 0)) {
@@ -258,7 +264,7 @@ float Brain::computeDirectionToBase(const Vec4 &pos) {
 	} else if (angle < -PI) {
 		angle += 2 * PI;
 	}
-	return angle;
+	return std::isnan(angle) ? 0.0F : angle;
 }
 
 } // namespace brain

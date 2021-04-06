@@ -72,7 +72,7 @@ void Proxy::send(std::string &&msg) {
 }
 
 void Proxy::recv_cb(gen_buf_t &&msg) {
-	spdlog::trace("recv_cb entered");
+	// spdlog::trace("recv_cb entered");
 
 	std::vector<size_t> msg_indexes;
 	for (size_t i = 0; i < msg.second; ++i) {

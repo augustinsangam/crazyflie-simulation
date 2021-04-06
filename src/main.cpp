@@ -42,7 +42,7 @@
 /* args::CCI_CrazyflieDistanceScannerSensor */
 #include <argos3/plugins/robots/crazyflie/control_interface/ci_crazyflie_distance_scanner_sensor.h>
 
-static uint16_t mainId = 0; // NOLINT
+static uint16_t mainId = 1; // NOLINT
 
 class CCrazyflieSensing : public argos::CCI_Controller { // NOLINT
 private:
@@ -50,7 +50,7 @@ private:
 	static constexpr const uint8_t tick_rate_{8};
 	// 2 pulses per second
 	static constexpr const uint8_t pulse_rate_{2};
-	// 1 pule each n ticks
+	// 1 pulse each n ticks
 	static constexpr const uint_fast8_t tick_pulse_{tick_rate_ / pulse_rate_};
 
 	const uint16_t id_{mainId++};
@@ -81,11 +81,10 @@ public:
 	/* Class constructor. */
 	CCrazyflieSensing()
 	    : brain_(id_), decoder_(),
-	      rt_status_("simulation_" + std::to_string(mainId)),
-	      proxy_("simulation_" + std::to_string(mainId)) {
+	      rt_status_("simulation_" + std::to_string(id_)),
+	      proxy_("simulation_" + std::to_string(id_)) {
 		brain_.setState(brain::idle);
-		std::cout << "drone " << rt_status_.get_name() << " created"
-		          << std::endl;
+		spdlog::info("[{}] created", rt_status_.get_name());
 	}
 
 	/* Class destructor. */
@@ -117,11 +116,8 @@ public:
 		                               static_cast<float_t>(cPos.GetY()),
 		                               static_cast<float_t>(cPos.GetZ())));
 
-		spdlog::info("argos_drone_" + std::to_string(id_) +
-		             " init position: (x: " + std::to_string(cPos.GetX()) +
-		             " y: " + std::to_string(cPos.GetY()) +
-		             " z: " + std::to_string(cPos.GetZ()) + ")");
-		spdlog::info("Init OK");
+		spdlog::info("[simulation_{}] init position: (x: {}, y: {}, z: {})",
+		             id_, cPos.GetX(), cPos.GetY(), cPos.GetZ());
 
 		/*UNCOMMENT THESE TWO LINES TO AUTOMATICALLY START
 		THE MISSION WHEN THE SIMULATION LAUNCHES */
@@ -135,7 +131,8 @@ public:
 	 */
 	void ControlStep() override {
 		// Battery
-		const auto &battery = m_pcBattery->GetReading().AvailableCharge;
+		const auto battery =
+		    static_cast<double>(m_pcBattery->GetReading().AvailableCharge);
 
 		// Position
 		const auto &position = m_pcPos->GetReading().Position;
@@ -180,7 +177,7 @@ public:
 		} else {
 			auto cmd = proxy_.next_cmd();
 			if (cmd) {
-				spdlog::info("Received command {}", *cmd);
+				spdlog::info("[simulation_{}] received command {}", id_, *cmd);
 				switch (*cmd) {
 				case cmd::start_mission:
 					brain_.setState(brain::State::take_off);
@@ -203,7 +200,7 @@ public:
 		++tick_count_;
 
 		const auto next_move =
-		    brain_.computeNextMove(&camera_data, &sensor_data);
+		    brain_.computeNextMove(&camera_data, &sensor_data, battery);
 		if (next_move) {
 			// spdlog::info("next_move (" +
 			// std::to_string(next_move->coords.x()) +
