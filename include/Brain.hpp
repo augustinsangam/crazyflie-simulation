@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <iostream>
 #include <optional>
+#include <spdlog/spdlog.h>
 
 namespace brain {
 
@@ -18,7 +19,16 @@ struct NextMove {
 	float_t yaw;
 };
 
-enum State { idle, take_off, land, auto_pilot, dodge, stabilize };
+enum State {
+	idle,
+	take_off,
+	land,
+	auto_pilot,
+	dodge,
+	stabilize,
+	return_to_base,
+	avoid_obstacle
+};
 
 class Brain {
 
@@ -26,9 +36,11 @@ class Brain {
 	State state_{};
 	State afterStab_{};
 	bool dodging_ = false;
+	bool avoiding_ = false;
 	uint16_t id_;
 	Vec4 initial_pos_ = Vec4(0);
-	float_t delta_angle_dodge_ = 0.0;
+	bool target_position_is_set_ = false;
+	Vec4 auto_pilot_target_position_ = Vec4(0);
 
 	const CameraData *cd_{};
 	const SensorData *sd_{};
@@ -45,13 +57,14 @@ class Brain {
 	void takeOff();
 	void doSquares();
 	void setupStabilization(Vec4 position, float_t orientation,
-	                        State next_state, const SensorData &sd);
+	                        State next_state);
+	float computeDirectionToBase(const Vec4 &pos);
 
 public:
 	explicit Brain(uint16_t id) : id_(id){};
 
 	void setState(State newState) { state_ = newState; };
-
+	void startReturnToBase();
 	State getState() { return state_; };
 
 	std::optional<NextMove> computeNextMove(const CameraData *cd,

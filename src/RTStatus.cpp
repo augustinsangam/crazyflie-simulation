@@ -5,8 +5,13 @@
 #include <array>
 #include <cmath>
 #include <ctime>
+#include <iomanip>
 #include <iostream>
 #include <math.h>
+#include <spdlog/common.h>
+#include <spdlog/spdlog.h>
+#include <sstream>
+#include <tao/json/pointer.hpp>
 #include <utility>
 
 #include <tao/json.hpp>
@@ -26,23 +31,39 @@ RTStatus::RTStatus(std::string name)
  */
 std::string RTStatus::encode() {
 
+	float yaw_rounded = trunc(yaw_, 2);
+	std::cout << std::setprecision(2);
+
 	const tao::json::value pulse = {
 	    {"type", "pulse"},
 	    {"data",
 	     {{"timestamp", std::time(nullptr)},
 	      {"name", name_},
 	      {"flying", flying_},
-	      {"battery", trunc<float_t>(battery_, 2)},
-	      {"speed", trunc<float_t>(speed_, 2)},
-	      {"position", tao::json::value::array({trunc<float_t>(pos_.x(), 2),
-	                                            trunc<float_t>(pos_.y(), 2),
-	                                            trunc<float_t>(pos_.z(), 2)})},
-	      {"yaw", trunc<float_t>(yaw_, 2)},
+	      {"battery", trunc(battery_, 2)},
+	      {"speed", trunc(speed_, 2)},
+	      {"position",
+	       tao::json::value::array(
+	           {trunc(pos_.x(), 2), trunc(pos_.y(), 2), trunc(pos_.z(), 2)})},
+	      {"yaw", yaw_rounded},
 	      {"ranges",
 	       tao::json::value::array({sensor_data_.front, sensor_data_.left,
 	                                sensor_data_.back, sensor_data_.right})},
 	      {"ledOn", false},
 	      {"real", false}}}};
+
+	// spdlog::debug(tao::json::to_string(pulse));
+
+	// std::stringstream msg;
+	// msg << std::setprecision(2);
+
+	// msg << yaw_rounded;
+	// spdlog::debug("rounded with string stream {}", msg.str());
+
+	// tao::json::to_stream(msg, pulse);
+
+	// std::string message = msg.str().append("\n");
+	// spdlog::debug("message rounded = {}", message);
 
 	return tao::json::to_string(pulse).append("\n");
 }
@@ -90,7 +111,10 @@ void RTStatus::print() const {
 	          << std::endl;
 }
 
-template <typename T> T RTStatus::trunc(T val, int numDigits) {
-	// TODO
-	return val;
+float_t RTStatus::trunc(float_t val, int numDigits) {
+	// int rounded_val =
+	//     static_cast<int>(static_cast<double>(val) * std::pow(10, numDigits));
+	// return static_cast<float_t>(rounded_val / 100.0);
+	float rounded = std::roundf(val * 100) / 100;
+	return rounded;
 }

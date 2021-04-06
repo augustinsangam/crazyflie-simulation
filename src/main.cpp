@@ -125,8 +125,8 @@ public:
 
 		/*UNCOMMENT THESE TWO LINES TO AUTOMATICALLY START
 		THE MISSION WHEN THE SIMULATION LAUNCHES */
-		// brain_.setState(brain::State::take_off);
-		// rt_status_.enable();
+		brain_.setState(brain::State::take_off);
+		rt_status_.enable();
 	}
 
 	/*
@@ -164,10 +164,9 @@ public:
 			    static_cast<std::uint16_t>((iterDistRead++)->second)};
 		}
 
-		// spdlog::info(std::to_string(id_) +
-		//              " -> (x: " + std::to_string(position.GetX()) +
-		//              " y: " + std::to_string(position.GetY()) +
-		//              " z: " + std::to_string(position.GetZ()) + ")");
+		// spdlog::info("{} = x: {}, y: {}, z: {}, yaw: {}", id_,
+		// position.GetX(),
+		//              position.GetY(), position.GetZ(), yaw.GetValue());
 		// Update drone status
 		Vec4 position_vec4 = Vec4(static_cast<std::float_t>(position.GetX()),
 		                          static_cast<std::float_t>(position.GetY()),
@@ -189,6 +188,10 @@ public:
 				case cmd::land:
 					brain_.setState(brain::State::land);
 					rt_status_.disable();
+					break;
+				case cmd::return_to_base:
+					brain_.setState(brain::State::return_to_base);
+					// brain_.startReturnToBase();
 					break;
 				default:
 					break;

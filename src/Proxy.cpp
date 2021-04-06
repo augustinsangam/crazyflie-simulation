@@ -1,4 +1,5 @@
 #include "Proxy.hpp"
+#include "cmd/T.hpp"
 #include <bits/c++config.h>
 #include <cstddef>
 #include <cstdlib> /* std::getenv */
@@ -20,6 +21,7 @@ static const std::unordered_map<std::string, cmd::T> cmd_map{
     {"lighten", cmd::lighten},
     {"pulse", cmd::pulse},
     {"startMission", cmd::start_mission},
+    {"returnToBase", cmd::return_to_base},
     {"takeOff", cmd::take_off},
 };
 

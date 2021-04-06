@@ -37,5 +37,5 @@ public:
 
 	void print() const;
 
-	template <typename T> static T trunc(T val, int numDigits);
+	static float_t trunc(float_t val, int numDigits);
 };
