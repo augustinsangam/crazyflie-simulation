@@ -22,16 +22,17 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 	uint16_t sensor_wall_distance_thresh_front = 15;
 	uint16_t sensor_wall_distance_thresh_side =
 	    sensor_wall_distance_thresh_front - 10;
-	spdlog::debug("f: {}, l: {}, b: {}, r: {}", sd->front, sd->left, sd->back,
-	              sd->right);
+	// spdlog::debug("f: {}, l: {}, b: {}, r: {}", sd->front, sd->left,
+	// sd->back,
+	//               sd->right);
 	// spdlog::info("Desired Pos -> (x: " + std::to_string(desiredPosition_.x())
 	// +
 	//              " y: " + std::to_string(desiredPosition_.y()) +
 	//              " z: " + std::to_string(desiredPosition_.z()) +
 	//              ") [tolerance=" + std::to_string(0.005) +
 	//              "] yaw: " + std::to_string(desiredAngle_));
-	spdlog::info("Actual Pos -> (x: {}, y: {}, z: {}, yaw: {}", x, y, z,
-	             cd->yaw);
+	// spdlog::info("Actual Pos -> (x: {}, y: {}, z: {}, yaw: {}", x, y, z,
+	//              cd->yaw);
 
 	NextMove nm{Vec4(0), true, desiredAngle_};
 	bool overwrite = false;
@@ -52,7 +53,7 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 		break;
 
 	case State::stabilize:
-		spdlog::info("Stabilize");
+		// spdlog::info("Stabilize");
 		/* (debug)
 		if (desiredPosition_.x() - 0.005F < cd->delta_x &&
 		    cd->delta_x < desiredPosition_.x() + 0.005F) {
@@ -124,21 +125,20 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 			target_position_is_set_ = false;
 		}
 		nm = {target_position_is_set_ ? auto_pilot_target_position_
-		                              : Vec4(0, 0, 0),
+		                              : Vec4(x, y, 0),
 		      false, desiredAngle_};
 		break;
 
 	case State::return_to_base: {
-		spdlog::debug("Return to base");
+		spdlog::info("[simulation_{}] returning to base", id_);
 		float angle = computeDirectionToBase(Vec4(x, y, z));
-		spdlog::debug("Angle to base = {}", angle * 180.0F / PI);
 		auto_pilot_target_position_ =
 		    Vec4(angle, initial_pos_.x(), initial_pos_.y(), 0);
 		target_position_is_set_ = true;
-		spdlog::debug("Target position = x: {}, y: {}, angle: {}",
-		              auto_pilot_target_position_.x(),
-		              auto_pilot_target_position_.y(),
-		              auto_pilot_target_position_.w());
+		spdlog::info(
+		    "[simulation_{}] target position = x: {}, y: {}, angle: {}", id_,
+		    auto_pilot_target_position_.x(), auto_pilot_target_position_.y(),
+		    auto_pilot_target_position_.w());
 		nm = {Vec4(x, y, z), false, angle};
 		setupStabilization(Vec4(x, y, z), angle, State::auto_pilot);
 		state_ = stabilize;
@@ -146,7 +146,7 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 	}
 
 	case State::avoid_obstacle: {
-		spdlog::info("avoid_obstacle");
+		// spdlog::info("avoid_obstacle");
 		if (!avoiding_) {
 			if (!dodging_) {
 				// "Starting rotation"
@@ -194,7 +194,6 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 				state_ = State::auto_pilot;
 				break;
 			}
-			spdlog::debug("b careful");
 			// advance for a while
 			nm = {Vec4(0, -0.03F, 0), true, desiredAngle_};
 		}
@@ -214,20 +213,14 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 		}
 		nm = {Vec4(0, -0.03F, 0), true, desiredAngle_};
 		overwrite = true;
-		float angle = computeDirectionToBase(Vec4(x, y, z)) * 180.0F / PI;
-		spdlog::debug("Angle to base = {}", angle);
 		if (target_position_is_set_) {
-			spdlog::debug("Target position = x: {}, y: {}, angle: {}",
-			              auto_pilot_target_position_.x(),
-			              auto_pilot_target_position_.y(),
-			              auto_pilot_target_position_.w());
 			if (auto_pilot_target_position_.x() - 0.03F < cd->delta_x &&
 			    cd->delta_x < auto_pilot_target_position_.x() + 0.03F &&
 			    auto_pilot_target_position_.y() - 0.03F < cd->delta_y &&
 			    cd->delta_y < auto_pilot_target_position_.y() + 0.03F) {
 				// auto_pilot_target_position_.z() - 0.01F < z &&
 				// z < auto_pilot_target_position_.z() + 0.01F) {
-				spdlog::debug("==================================");
+				spdlog::info("[simulation_{}] amorcing landing now", id_);
 				state_ = State::land;
 			}
 		}
@@ -265,21 +258,7 @@ float Brain::computeDirectionToBase(const Vec4 &pos) {
 	} else if (angle < -PI) {
 		angle += 2 * PI;
 	}
-	spdlog::debug("Computed angle = {}", angle);
 	return angle;
-}
-
-void Brain::startReturnToBase() {
-	spdlog::debug("Starting to return to base");
-	if (state_ != stabilize) {
-		setupStabilization(Vec4(cd_->delta_x + initial_pos_.x(),
-		                        cd_->delta_y + initial_pos_.y(),
-		                        cd_->z + initial_pos_.z()),
-		                   cd_->yaw, State::return_to_base);
-		state_ = stabilize;
-	} else {
-		afterStab_ = State::return_to_base;
-	}
 }
 
 } // namespace brain

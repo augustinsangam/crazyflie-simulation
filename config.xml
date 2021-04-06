@@ -13,7 +13,7 @@
   <!-- ************************* -->
   <framework>
     <system threads="0" />
-    <experiment length="0" ticks_per_second="8" random_seed="13379" />
+    <experiment length="0" ticks_per_second="8" random_seed="4354" />
   </framework>
 
   <!-- *************** -->
@@ -56,22 +56,22 @@
     </box>
 
     <!-- Drones -->
-    <crazyflie id="argos_drone_0">
+    <crazyflie id="simulation_1">
       <body position="0,0,0" orientation="45,0,0" />
       <controller config="ssc" />
       <battery model="time_motion" delta="1e-3" pos_delta="1e-3" orient_delta="1e-3" />
     </crazyflie>
-    <crazyflie id="argos_drone_1">
+    <crazyflie id="simulation_2">
       <body position="0,0,0" orientation="135,0,0" />
       <controller config="ssc" />
       <battery model="time_motion" delta="1e-3" pos_delta="1e-3" orient_delta="1e-3" />
     </crazyflie>
-    <!--crazyflie id="argos_drone_2">
+    <!--crazyflie id="simulation_3">
       <body position="0,0,0" orientation="225,0,0" />
       <controller config="ssc" />
       <battery model="time_motion" delta="1e-3" pos_delta="1e-3" orient_delta="1e-3" />
     </crazyflie>
-    <crazyflie id="argos_drone_3">
+    <crazyflie id="simulation_4">
       <body position="0,0,0" orientation="315,0,0" />
       <controller config="ssc" />
       <battery model="time_motion" delta="1e-3" pos_delta="1e-3" orient_delta="1e-3" />

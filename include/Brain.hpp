@@ -64,13 +64,14 @@ public:
 	explicit Brain(uint16_t id) : id_(id){};
 
 	void setState(State newState) { state_ = newState; };
-	void startReturnToBase();
 	State getState() { return state_; };
 
 	std::optional<NextMove> computeNextMove(const CameraData *cd,
 	                                        const SensorData *sd);
 
 	void setInitialPosition(Vec4 pos) { initial_pos_ = pos; }
+
+	bool isReturningToBase() { return target_position_is_set_; }
 };
 
 } // namespace brain

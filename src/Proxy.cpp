@@ -77,7 +77,6 @@ void Proxy::recv_cb(gen_buf_t &&msg) {
 	std::vector<size_t> msg_indexes;
 	for (size_t i = 0; i < msg.second; ++i) {
 		if (msg.first.get()[i] == '\n') {
-			spdlog::debug("\\n detected !");
 			msg_indexes.push_back(i);
 		}
 	}
@@ -90,15 +89,12 @@ void Proxy::recv_cb(gen_buf_t &&msg) {
 			                                      i - old_index);
 			old_index = i;
 
-			spdlog::debug("Message parsed, sending message {}", i);
-
 			const auto &m = v.get_object();
 
 			const auto &name = m.at("data").at("name").get_string();
 
 			const auto it = recv_boxes_.find(name);
 			if (it == recv_boxes_.end()) {
-				spdlog::debug("HEY");
 				return;
 			}
 
@@ -108,7 +104,6 @@ void Proxy::recv_cb(gen_buf_t &&msg) {
 			auto cmd =
 			    type_it != cmd_map.end() ? type_it->second : cmd::unknown;
 			it->second->push(cmd);
-			spdlog::debug("Message pushed");
 		}
 	} catch (const tao::json::pegtl::parse_error &e) {
 		spdlog::warn("Invalid json received ({}) : {}", e.what(),

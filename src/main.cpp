@@ -172,7 +172,8 @@ public:
 		                          static_cast<std::float_t>(position.GetY()),
 		                          static_cast<std::float_t>(position.GetZ()));
 		rt_status_.update(static_cast<std::float_t>(battery), position_vec4,
-		                  static_cast<float_t>(yaw.GetValue()), sensor_data);
+		                  static_cast<float_t>(yaw.GetValue()), sensor_data,
+		                  brain_.getState(), brain_.isReturningToBase());
 
 		if (tick_count_ % tick_pulse_ == 0) {
 			proxy_.send(rt_status_.encode());
@@ -184,14 +185,15 @@ public:
 				case cmd::start_mission:
 					brain_.setState(brain::State::take_off);
 					rt_status_.enable();
+					spdlog::info("[simulation_{}] taking off", id_);
 					break;
 				case cmd::land:
 					brain_.setState(brain::State::land);
 					rt_status_.disable();
+					spdlog::info("[simulation_{}] emergency landing", id_);
 					break;
 				case cmd::return_to_base:
 					brain_.setState(brain::State::return_to_base);
-					// brain_.startReturnToBase();
 					break;
 				default:
 					break;

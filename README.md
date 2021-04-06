@@ -30,6 +30,8 @@ See https://gitlab.com/polytechnique-montr-al/inf3995/20211/equipe-203/crazyflie
 ```json
 {"type":"startMission", "data":{"name": "simulation_1"}}
 {"type":"startMission", "data":{"name": "simulation_2"}}
+{"type":"returnToBase", "data":{"name": "simulation_1"}}
+{"type":"returnToBase", "data":{"name": "simulation_2"}}
 {"type":"land", "data":{"name": "simulation_1"}}
 {"type":"land", "data":{"name": "simulation_2"}}
 ```

@@ -1,4 +1,5 @@
 #include "RTStatus.hpp"
+#include "Brain.hpp"
 #include "Decoder.hpp"
 #include "SensorData.hpp"
 #include "Vec3.hpp"
@@ -49,6 +50,7 @@ std::string RTStatus::encode() {
 	      {"ranges",
 	       tao::json::value::array({sensor_data_.front, sensor_data_.left,
 	                                sensor_data_.back, sensor_data_.right})},
+	      {"state", pulse_state},
 	      {"ledOn", false},
 	      {"real", false}}}};
 
@@ -75,7 +77,8 @@ std::string RTStatus::encode() {
  * @param pos
  */
 void RTStatus::update(std::float_t battery, const Vec4 &pos, const float_t &yaw,
-                      const SensorData &sd) {
+                      const SensorData &sd, const brain::State &brain_state,
+                      const bool &brain_returning_to_base) {
 	if (!flying_) {
 		return;
 	}
@@ -86,6 +89,41 @@ void RTStatus::update(std::float_t battery, const Vec4 &pos, const float_t &yaw,
 	pos_ = pos;
 	sensor_data_ = sd;
 	yaw_ = yaw;
+
+	switch (brain_state) {
+	case brain::State::dodge:
+		pulse_state = pulse_states[PulseIndex::exploring];
+		break;
+
+	case brain::State::auto_pilot:
+		pulse_state = brain_returning_to_base
+		                  ? pulse_states[PulseIndex::returningToBase]
+		                  : pulse_states[PulseIndex::exploring];
+		break;
+
+	case brain::State::avoid_obstacle:
+	case brain::State::return_to_base:
+		pulse_state = pulse_states[PulseIndex::returningToBase];
+		break;
+
+	case brain::State::take_off:
+		pulse_state = pulse_states[PulseIndex::takingOff];
+		break;
+
+	case brain::State::land:
+		pulse_state = pulse_states[PulseIndex::landing];
+		break;
+
+	case brain::State::idle:
+		pulse_state = pulse_states[PulseIndex::onTheGround];
+		break;
+
+	case brain::State::stabilize:
+		pulse_state = brain_returning_to_base
+		                  ? pulse_states[PulseIndex::returningToBase]
+		                  : pulse_states[PulseIndex::exploring];
+		break;
+	}
 }
 
 /**
