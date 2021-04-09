@@ -30,6 +30,8 @@ enum State {
 	avoid_obstacle
 };
 
+enum Dodger { clockwise, counter_clockwise, unset };
+
 class Brain {
 
 	float_t PI = 3.141593F;
@@ -42,6 +44,7 @@ class Brain {
 	Vec4 initial_pos_ = Vec4(0);
 	bool is_returning_to_base_ = false;
 	Vec4 auto_pilot_target_position_ = Vec4(0);
+	Dodger dodge_type_ = unset;
 
 	const CameraData *cd_{};
 	const SensorData *sd_{};
@@ -70,7 +73,7 @@ public:
 	std::optional<NextMove> computeNextMove(const CameraData *cd,
 	                                        const SensorData *sd,
 	                                        const double &battery_level);
-
+	float_t getDodgeRotation(const SensorData *sd, const float_t &currentYaw);
 	void setInitialPosition(Vec4 pos) { initial_pos_ = pos; }
 
 	bool isReturningToBase() { return is_returning_to_base_; }
