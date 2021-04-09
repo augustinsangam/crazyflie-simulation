@@ -1,0 +1,17 @@
+<box id="wall_1" size="0.1,1,1" movable="false">
+  <body position="-0.7,-0.7,0" orientation="0,0,0" />
+</box><box id="wall_2" size="0.1,1,1" movable="false">
+  <body position="0.7,0.7,0" orientation="0,0,0" />
+</box><box id="wall_3" size="0.3,1,1" movable="false">
+  <body position="0.7,-0.7,0" orientation="90,0,0" />
+</box><box id="wall_4" size="0.3,1,1" movable="false">
+  <body position="-0.7,0.7,0" orientation="90,0,0" />
+</box><cylinder id="cylinder_1" height="1" radius="0.6" movable="false">
+  <body position="-2,2,0" orientation="0,0,0" />
+</cylinder><cylinder id="cylinder_2" height="1" radius="0.6" movable="false">
+  <body position="2,-2,0" orientation="0,0,0" />
+</cylinder><cylinder id="cylinder_3" height="1" radius="0.6" movable="false">
+  <body position="-2,-2,0" orientation="0,0,0" />
+</cylinder><cylinder id="cylinder_4" height="1" radius="0.6" movable="false">
+  <body position="2,2,0" orientation="0,0,0" />
+</cylinder>

@@ -1,0 +1,9 @@
+<box id="wall_1" size="0.25,2.5,1" movable="false">
+  <body position="-0.8,-0.8,0" orientation="90,0,0" />
+</box><box id="wall_2" size="0.3,1.5,1" movable="false">
+  <body position="-1,1.25,0" orientation="0,0,0" />
+</box><box id="wall_3" size="0.3,1.5,1" movable="false">
+  <body position="1.25,-1.25,0" orientation="0,0,0" />
+</box><box id="wall_4" size="0.7,0.7,0.6" movable="false">
+  <body position="0.5,0.5,0" orientation="45,0,0" />
+</box>

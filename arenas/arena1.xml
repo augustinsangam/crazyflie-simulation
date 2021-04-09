@@ -1,0 +1,15 @@
+<box id="wall_1" size="0.1,1,1" movable="false">
+  <body position="-1,0.7,0" orientation="90,0,0" />
+</box><box id="wall_2" size="0.1,0.3,1" movable="false">
+  <body position="1.2,-1.7,0" orientation="0,0,0" />
+</box><box id="wall_3" size="0.1,1,1" movable="false">
+  <body position="0.5,0,0" orientation="0,0,0" />
+</box><box id="wall_4" size="0.4,0.4,0.6" movable="false">
+  <body position="-0.2,1.4,0" orientation="30,0,0" />
+</box><box id="wall_5" size="0.1,2,1" movable="false">
+  <body position="1,-1,0" orientation="90,0,0" />
+</box><box id="wall_6" size="0.1,2,1" movable="false">
+  <body position="-1,-1,0" orientation="0,0,0" />
+</box><box id="wall_7" size="0.1,2,1" movable="false">
+  <body position="1,1,0" orientation="0,0,0" />
+</box>
