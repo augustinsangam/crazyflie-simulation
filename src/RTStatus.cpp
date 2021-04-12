@@ -1,6 +1,5 @@
 #include "RTStatus.hpp"
 #include "Brain.hpp"
-#include "Decoder.hpp"
 #include "SensorData.hpp"
 #include "Vec3.hpp"
 #include <array>
@@ -71,10 +70,17 @@ std::string RTStatus::encode() {
 }
 
 /**
- * @brief Updates the status of the drone (battery, position, and speed)
+ * @brief Updates the status of the drone (battery, position, orientation,
+ * speed, brain state). Sets the RTStatus::state_ approprietly depending on the
+ * brain state
  *
- * @param battery
- * @param pos
+ * @param battery battery level
+ * @param pos absolute position gotten from the flowdeck
+ * @param yaw absolute orientation gotten from the flowdeck
+ * @param sd multiranger sensors data
+ * @param brain_state current state of the brain class
+ * @param brain_returning_to_base boolean to indicate if the drone is currently
+ * returning to its base
  */
 void RTStatus::update(std::float_t battery, const Vec4 &pos, const float_t &yaw,
                       const SensorData &sd, const brain::State &brain_state,
@@ -116,6 +122,9 @@ void RTStatus::update(std::float_t battery, const Vec4 &pos, const float_t &yaw,
 
 	case brain::State::idle:
 		pulse_state = pulse_states[PulseIndex::onTheGround];
+		if (flying_) {
+			disable();
+		}
 		break;
 
 	case brain::State::stabilize:
@@ -139,16 +148,12 @@ void RTStatus::enable() { flying_ = true; }
 void RTStatus::disable() { flying_ = false; }
 
 /**
- * @brief Debug function to display the drone status
+ * @brief TODO
  *
+ * @param val
+ * @param numDigits
+ * @return float_t
  */
-void RTStatus::print() const {
-	std::cout << "Updated data : " << std::endl
-	          << "battery_level: " << battery_ << std::endl
-	          << "pos: " << pos_.x() << " " << pos_.y() << " " << pos_.z()
-	          << std::endl;
-}
-
 float_t RTStatus::trunc(float_t val, int numDigits) {
 	// int rounded_val =
 	//     static_cast<int>(static_cast<double>(val) * std::pow(10, numDigits));

@@ -4,6 +4,11 @@
 #include <cmath>
 #include <string>
 
+/**
+ * @brief RTStatus (RealTimeStatus): stores the real time state (position,
+ * orientation, speed, battery...) of a drone
+ *
+ */
 class RTStatus {
 private:
 	bool flying_;
@@ -46,8 +51,6 @@ public:
 	void enable();
 
 	void disable();
-
-	void print() const;
 
 	static float_t trunc(float_t val, int numDigits);
 };

@@ -9,6 +9,8 @@ fi
 
 python arena_selector.py $ARENA_INDEX
 
+sed -i "s/random_seed=\".*\" \/>/random_seed=\"$RANDOM\" \/>/g" config.xml
+
 # build the project
 mkdir -p build
 cd build

@@ -1,0 +1,19 @@
+<distribute>
+  <position method="uniform" min="-2,-2,0" max="2,-0.6,0" />
+  <orientation method="uniform" min="0,0,0" max="360,0,0" />
+  <entity quantity="2" max_trials="1000">
+    <box id="wall_1" size="0.5,0.6,1" movable="false" />
+  </entity>
+</distribute><distribute>
+  <position method="uniform" min="-2,0.6,0" max="2,2,0" />
+  <orientation method="uniform" min="0,0,0" max="360,0,0" />
+  <entity quantity="1" max_trials="1000">
+    <box id="wall_2" size="0.5,0.8,1" movable="false" />
+  </entity>
+</distribute><distribute>
+  <position method="uniform" min="0.5,-2,0" max="2,2,0" />
+  <orientation method="constant" values="0,0,0" />
+  <entity quantity="1" max_trials="1000">
+    <cylinder id="cylinder" height="1" radius="0.2" movable="false" />
+  </entity>
+</distribute>

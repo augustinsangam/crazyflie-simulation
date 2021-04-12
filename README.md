@@ -5,17 +5,18 @@ simulator.
 
 ## Launch argos simulation
 
+5 arenas are predefined in the simulation. You can specify which one you want to use when launching it :
 ```bash
-# Build
-sudo apt-get install rapidjson-dev
-mkdir build
-cd build
-cmake -DCMAKE_BUILD_TYPE=Debug ..
-make
+# Launch a specific arena
+ $ ./launch.sh {1,2,3,4,5}
 
-# Launch
-argos3 -c ../config.xml
+# Launch a random arena
+ $ ./launch.sh 0
+
+# Launch the with the last configuration
+ $ ./launch.sh
 ```
+
 
 ## Docker
 ```bash
@@ -50,7 +51,7 @@ To generate the project's documentation :
   ```
 * Install the recommended extension in VSCode (Name: Doxygen Documentation Generator https://marketplace.visualstudio.com/items?itemName=cschlosser.doxdocgen)
 
-* Once in a while, run Doxygen. Make sure you are in the root directory of the project (`/drone`)
+* Once in a while, run Doxygen. Make sure you are in the root directory of the project (`/simulation`)
   ```bash
   doxygen doc/doxygen-config
   ```

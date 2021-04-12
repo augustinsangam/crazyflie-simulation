@@ -1,6 +1,5 @@
 #include "Brain.hpp"
 #include "CameraData.hpp"
-#include "Decoder.hpp"
 #include "FlowDeck.hpp"
 #include "Proxy.hpp"
 #include "RTStatus.hpp"
@@ -58,7 +57,6 @@ private:
 	uint32_t tick_count_{};
 
 	brain::Brain brain_;
-	Decoder decoder_;
 	RTStatus rt_status_;
 	Proxy proxy_;
 	double orientation_ = argos::CRadians::PI_OVER_TWO.GetValue();
@@ -80,8 +78,7 @@ private:
 public:
 	/* Class constructor. */
 	CCrazyflieSensing()
-	    : brain_(id_), decoder_(),
-	      rt_status_("simulation_" + std::to_string(id_)),
+	    : brain_(id_), rt_status_("simulation_" + std::to_string(id_)),
 	      proxy_("simulation_" + std::to_string(id_)) {
 		brain_.setState(brain::idle);
 		spdlog::info("[{}] created", rt_status_.get_name());
@@ -118,11 +115,6 @@ public:
 
 		spdlog::info("[simulation_{}] init position: (x: {}, y: {}, z: {})",
 		             id_, cPos.GetX(), cPos.GetY(), cPos.GetZ());
-
-		/*UNCOMMENT THESE TWO LINES TO AUTOMATICALLY START
-		THE MISSION WHEN THE SIMULATION LAUNCHES */
-		// brain_.setState(brain::State::take_off);
-		// rt_status_.enable();
 	}
 
 	/*
@@ -142,7 +134,7 @@ public:
 
 		// FlowDeck v2
 		// https://www.bitcraze.io/products/flow-deck-v2/
-		const auto camera_data =
+		const CameraData camera_data =
 		    flow_deck_.getInitPositionDelta(position, orientation);
 
 		// Look here for documentation on the distance sensor:
@@ -165,12 +157,11 @@ public:
 		// position.GetX(),
 		//              position.GetY(), position.GetZ(), yaw.GetValue());
 		// Update drone status
-		Vec4 position_vec4 = Vec4(static_cast<std::float_t>(position.GetX()),
-		                          static_cast<std::float_t>(position.GetY()),
-		                          static_cast<std::float_t>(position.GetZ()));
+		Vec4 position_vec4 =
+		    Vec4(camera_data.delta_x, camera_data.delta_y, camera_data.z);
 		rt_status_.update(static_cast<std::float_t>(battery), position_vec4,
-		                  static_cast<float_t>(yaw.GetValue()), sensor_data,
-		                  brain_.getState(), brain_.isReturningToBase());
+		                  camera_data.yaw, sensor_data, brain_.getState(),
+		                  brain_.isReturningToBase());
 
 		if (tick_count_ % tick_pulse_ == 0) {
 			proxy_.send(rt_status_.encode());

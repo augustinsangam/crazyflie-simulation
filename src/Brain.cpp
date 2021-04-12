@@ -23,7 +23,7 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 
 	uint16_t sensor_wall_distance_thresh_front = 20;
 	uint16_t sensor_wall_distance_thresh_side =
-	    sensor_wall_distance_thresh_front - 15;
+	    sensor_wall_distance_thresh_front - 10;
 	// spdlog::debug("f: {}, l: {}, b: {}, r: {}", sd->front, sd->left,
 	// sd->back,
 	//               sd->right);
@@ -116,10 +116,6 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 		auto_pilot_target_position_ =
 		    Vec4(angle, initial_pos_.x(), initial_pos_.y(), 0);
 		is_returning_to_base_ = true;
-		spdlog::info(
-		    "[simulation_{}] target position = x: {}, y: {}, angle: {}", id_,
-		    auto_pilot_target_position_.x(), auto_pilot_target_position_.y(),
-		    auto_pilot_target_position_.w());
 		nm = {Vec4(x, y, z), false, angle};
 		setupStabilization(Vec4(x, y, z), angle, State::auto_pilot);
 		state_ = stabilize;

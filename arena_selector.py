@@ -8,7 +8,7 @@ parser.add_argument("arena_index", type=int, default=-1)
 
 arena_index = parser.parse_args().arena_index
 
-if arena_index not in [1, 2, 3, 4, 5]:
+if arena_index not in [0, 1, 2, 3, 4, 5]:
     '''
 if arena_index == -1:
     print("[arena_selector] Using a random arena.")
