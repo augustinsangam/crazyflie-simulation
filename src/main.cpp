@@ -121,8 +121,8 @@ public:
 
 		/*UNCOMMENT THESE TWO LINES TO AUTOMATICALLY START
 		THE MISSION WHEN THE SIMULATION LAUNCHES */
-		brain_.setState(brain::State::take_off);
-		rt_status_.enable();
+		// brain_.setState(brain::State::take_off);
+		// rt_status_.enable();
 	}
 
 	/*

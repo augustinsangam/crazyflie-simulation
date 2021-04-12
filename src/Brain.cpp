@@ -27,12 +27,11 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 	// spdlog::debug("f: {}, l: {}, b: {}, r: {}", sd->front, sd->left,
 	// sd->back,
 	//               sd->right);
-	// spdlog::info("Desired Pos -> (x: " + std::to_string(desiredPosition_.x())
-	// +
-	//              " y: " + std::to_string(desiredPosition_.y()) +
-	//              " z: " + std::to_string(desiredPosition_.z()) +
-	//              ") [tolerance=" + std::to_string(0.005) +
-	//              "] yaw: " + std::to_string(desiredAngle_));
+	spdlog::info("Desired Pos -> (x: " + std::to_string(desiredPosition_.x()) +
+	             " y: " + std::to_string(desiredPosition_.y()) +
+	             " z: " + std::to_string(desiredPosition_.z()) +
+	             ") [tolerance=" + std::to_string(0.005) +
+	             "] yaw: " + std::to_string(desiredAngle_));
 	spdlog::info("Actual Pos -> (x: {}, y: {}, z: {}, yaw: {}", x, y, z,
 	             cd->yaw);
 
@@ -62,10 +61,10 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 
 	case State::stabilize:
 		// spdlog::info("Stabilize");
-		if (desiredPosition_.x() - 0.005F < cd->delta_x &&
-		    cd->delta_x < desiredPosition_.x() + 0.005F &&
-		    desiredPosition_.y() - 0.005F < cd->delta_y &&
-		    cd->delta_y < desiredPosition_.y() + 0.005F &&
+		if (desiredPosition_.x() - 0.005F < x &&
+		    x < desiredPosition_.x() + 0.005F &&
+		    desiredPosition_.y() - 0.005F < y &&
+		    y < desiredPosition_.y() + 0.005F &&
 		    desiredPosition_.z() - 0.005F < z &&
 		    z < desiredPosition_.z() + 0.005F &&
 		    std::abs(desiredAngle_) - 0.01F < std::abs(cd->yaw) &&
@@ -196,10 +195,10 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 		nm = {Vec4(0, -0.03F, 0), true, desiredAngle_};
 		overwrite = true;
 		if (is_returning_to_base_) {
-			if (auto_pilot_target_position_.x() - 0.03F < cd->delta_x &&
-			    cd->delta_x < auto_pilot_target_position_.x() + 0.03F &&
-			    auto_pilot_target_position_.y() - 0.03F < cd->delta_y &&
-			    cd->delta_y < auto_pilot_target_position_.y() + 0.03F) {
+			if (auto_pilot_target_position_.x() - 0.03F < x &&
+			    x < auto_pilot_target_position_.x() + 0.03F &&
+			    auto_pilot_target_position_.y() - 0.03F < y &&
+			    y < auto_pilot_target_position_.y() + 0.03F) {
 				// auto_pilot_target_position_.z() - 0.01F < z &&
 				// z < auto_pilot_target_position_.z() + 0.01F) {
 				spdlog::info("[simulation_{}] amorcing landing now", id_);
