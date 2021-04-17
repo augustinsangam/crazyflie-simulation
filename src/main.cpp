@@ -107,14 +107,23 @@ public:
 		    "crazyflie_distance_scanner");
 
 		const auto &cPos = m_pcPos->GetReading().Position;
+		const auto &orientation = m_pcPos->GetReading().Orientation;
+		argos::CRadians yaw, y_angle, x_angle;
+		orientation.ToEulerAngles(yaw, y_angle, x_angle);
 
 		flow_deck_.init(cPos);
-		brain_.setInitialPosition(Vec4(static_cast<float_t>(cPos.GetX()),
+		brain_.setInitialPosition(Vec4(static_cast<float_t>(yaw.GetValue()),
+		                               static_cast<float_t>(cPos.GetX()),
 		                               static_cast<float_t>(cPos.GetY()),
 		                               static_cast<float_t>(cPos.GetZ())));
 
 		spdlog::info("[simulation_{}] init position: (x: {}, y: {}, z: {})",
 		             id_, cPos.GetX(), cPos.GetY(), cPos.GetZ());
+
+		/*UNCOMMENT THESE TWO LINES TO AUTOMATICALLY START
+		THE MISSION WHEN THE SIMULATION LAUNCHES */
+		// brain_.setState(brain::State::take_off);
+		// rt_status_.enable();
 	}
 
 	/*
@@ -192,27 +201,26 @@ public:
 
 		const auto next_move =
 		    brain_.computeNextMove(&camera_data, &sensor_data, battery);
-		if (next_move) {
-			// spdlog::info("next_move (" +
-			// std::to_string(next_move->coords.x()) +
-			//              "," + std::to_string(next_move->coords.y()) + "," +
-			//              std::to_string(next_move->coords.z()) + ")" + " yaw
-			//              " + std::to_string(next_move->yaw));
-			if (next_move->relative) {
-				m_pcPropellers->SetRelativePosition(argos::CVector3(
-				    next_move->coords.x(), next_move->coords.y(),
-				    next_move->coords.z()));
-			} else {
-				m_pcPropellers->SetAbsolutePosition(argos::CVector3(
-				    next_move->coords.x(), next_move->coords.y(),
-				    next_move->coords.z()));
-				m_pcPropellers->SetAbsoluteYaw(argos::CRadians(next_move->yaw));
-			}
+		if (!next_move) {
+			return;
+		}
+		if (next_move->relative) {
+			m_pcPropellers->SetRelativePosition(
+			    argos::CVector3(static_cast<double>(next_move->coords.x()),
+			                    static_cast<double>(next_move->coords.y()),
+			                    static_cast<double>(next_move->coords.z())));
+		} else {
+			m_pcPropellers->SetAbsolutePosition(
+			    argos::CVector3(static_cast<double>(next_move->coords.x()),
+			                    static_cast<double>(next_move->coords.y()),
+			                    static_cast<double>(next_move->coords.z())));
+			m_pcPropellers->SetAbsoluteYaw(
+			    argos::CRadians(static_cast<double>(next_move->yaw)));
 		}
 	}
 
-	/*
-	 * This function resets the controller to its state right after the
+	/**
+	 * @brief This function resets the controller to its state right after the
 	 * Init().
 	 * It is called when you press the reset button in the GUI.
 	 * In this example controller there is no need for resetting anything,
@@ -221,14 +229,13 @@ public:
 	 */
 	void Reset() override { tick_count_ = 0; }
 
-	/*
-	 * Called to cleanup what done by Init() when the experiment finishes.
-	 * In this example controller there is no need for clean anything up,
-	 * so the function could have been omitted. It's here just for
+	/**
+	 * @brief Called to cleanup what done by Init() when the experiment
+	 * finishes. In this example controller there is no need for clean anything
+	 * up, so the function could have been omitted. It's here just for
 	 * completeness.
 	 */
-	void Destroy() override { /*conn_->terminate();*/
-	}
+	void Destroy() override {}
 };
 
 // NOLINTNEXTLINE

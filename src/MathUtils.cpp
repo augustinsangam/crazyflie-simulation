@@ -3,8 +3,8 @@
 
 float MathUtils::computeDirectionToBase(const Vec4 &pos, const Vec4 &init_pos) {
 	// TODO use init_pos
-	const auto x = pos.x();
-	const auto y = pos.y();
+	const auto x = pos.x() + init_pos.x();
+	const auto y = pos.y() + init_pos.y();
 	float angle;
 
 	if ((x < 0 && y < 0) || (x > 0 && y > 0)) {

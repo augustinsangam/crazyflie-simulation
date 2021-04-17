@@ -51,6 +51,4 @@ public:
 	void enable();
 
 	void disable();
-
-	static float_t trunc(float_t val, int numDigits);
 };

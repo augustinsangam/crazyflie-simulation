@@ -7,7 +7,6 @@
 #include <ctime>
 #include <iomanip>
 #include <iostream>
-#include <math.h>
 #include <spdlog/common.h>
 #include <spdlog/spdlog.h>
 #include <sstream>
@@ -23,7 +22,7 @@
  */
 RTStatus::RTStatus(std::string name)
     : flying_{false}, name_(std::move(name)), speed_{0}, battery_{100},
-      sensor_data_(), pos_(0) {}
+      sensor_data_(), pos_(0), yaw_(0) {}
 /**
  * @brief Encodes the current status of the drone as json
  *
@@ -31,8 +30,7 @@ RTStatus::RTStatus(std::string name)
  */
 std::string RTStatus::encode() {
 
-	float yaw_rounded = trunc(yaw_, 2);
-	std::cout << std::setprecision(2);
+	float yaw_rounded = yaw_;
 
 	const tao::json::value pulse = {
 	    {"type", "pulse"},
@@ -40,11 +38,9 @@ std::string RTStatus::encode() {
 	     {{"timestamp", std::time(nullptr)},
 	      {"name", name_},
 	      {"flying", flying_},
-	      {"battery", trunc(battery_, 2)},
-	      {"speed", trunc(speed_, 2)},
-	      {"position",
-	       tao::json::value::array(
-	           {trunc(pos_.x(), 2), trunc(pos_.y(), 2), trunc(pos_.z(), 2)})},
+	      {"battery", battery_},
+	      {"speed", speed_},
+	      {"position", tao::json::value::array({pos_.x(), pos_.y(), pos_.z()})},
 	      {"yaw", yaw_rounded},
 	      {"ranges",
 	       tao::json::value::array({sensor_data_.front, sensor_data_.left,
@@ -52,19 +48,6 @@ std::string RTStatus::encode() {
 	      {"state", pulse_state},
 	      {"ledOn", false},
 	      {"real", false}}}};
-
-	// spdlog::debug(tao::json::to_string(pulse));
-
-	// std::stringstream msg;
-	// msg << std::setprecision(2);
-
-	// msg << yaw_rounded;
-	// spdlog::debug("rounded with string stream {}", msg.str());
-
-	// tao::json::to_stream(msg, pulse);
-
-	// std::string message = msg.str().append("\n");
-	// spdlog::debug("message rounded = {}", message);
 
 	return tao::json::to_string(pulse).append("\n");
 }
@@ -97,7 +80,7 @@ void RTStatus::update(std::float_t battery, const Vec4 &pos, const float_t &yaw,
 	yaw_ = yaw;
 
 	switch (brain_state) {
-	case brain::State::dodge:
+	case brain::State::exploration_dodge:
 		pulse_state = pulse_states[PulseIndex::exploring];
 		break;
 
@@ -107,8 +90,8 @@ void RTStatus::update(std::float_t battery, const Vec4 &pos, const float_t &yaw,
 		                  : pulse_states[PulseIndex::exploring];
 		break;
 
-	case brain::State::avoid_obstacle:
 	case brain::State::return_to_base:
+	case brain::State::return_to_base_dodge:
 		pulse_state = pulse_states[PulseIndex::returningToBase];
 		break;
 
@@ -146,18 +129,3 @@ void RTStatus::enable() { flying_ = true; }
  *
  */
 void RTStatus::disable() { flying_ = false; }
-
-/**
- * @brief TODO
- *
- * @param val
- * @param numDigits
- * @return float_t
- */
-float_t RTStatus::trunc(float_t val, int numDigits) {
-	// int rounded_val =
-	//     static_cast<int>(static_cast<double>(val) * std::pow(10, numDigits));
-	// return static_cast<float_t>(rounded_val / 100.0);
-	float rounded = std::roundf(val * 100) / 100;
-	return rounded;
-}

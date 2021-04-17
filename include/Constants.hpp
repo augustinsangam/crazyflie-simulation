@@ -8,8 +8,10 @@ const uint16_t WALL_DISTANCE_THRESH_SIDE = 10;
 const float DODGE_PRECISION = 0.05F;
 const float STABILIZE_POS_PRECISION = 0.005F;
 const float STABILIZE_YAW_PRECISION = 0.01F;
-const float LAND_PRECISION = 0.03F;
-const double BATTERY_THRESHOLD_RTB = 0.30;
-// TODO Implement emergency landing
-const double BATTERY_THRESHOLD_EMERGENCY = 0.5;
+const float LANDING_ZONE_PRECISION = 0.2F;
+const double BATTERY_THRESHOLD_RTB = 0.3;
+const double BATTERY_THRESHOLD_EMERGENCY = 0.05;
+const float LANDING_THRESHOLD = 0.01F;
+const float FORWARD_UNIT = -0.03F;
+const uint16_t DODGE_TIMEOUT_TICKS = 25;
 #endif
