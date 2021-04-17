@@ -2,14 +2,19 @@
 #define BRAIN_HPP
 
 #include "CameraData.hpp"
+#include "Constants.hpp"
 #include "SensorData.hpp"
 #include "Vec4.hpp"
+#include <argos3/core/utility/math/angles.h>
 #include <bits/stdint-uintn.h>
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
 #include <iostream>
 #include <optional>
 #include <spdlog/spdlog.h>
+#include <string>
+#include <sys/types.h>
 
 namespace brain {
 
