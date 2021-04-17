@@ -9,4 +9,7 @@ const float DODGE_PRECISION = 0.05F;
 const float STABILIZE_POS_PRECISION = 0.005F;
 const float STABILIZE_YAW_PRECISION = 0.01F;
 const float LAND_PRECISION = 0.03F;
+const double BATTERY_THRESHOLD_RTB = 0.30;
+// TODO Implement emergency landing
+const double BATTERY_THRESHOLD_EMERGENCY = 0.5;
 #endif

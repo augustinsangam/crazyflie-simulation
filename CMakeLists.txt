@@ -48,4 +48,5 @@ target_sources(controller PRIVATE
 	"./src/Brain.cpp"
 	"./src/Proxy.cpp"
 	"./src/RTStatus.cpp"
+	"./src/MathUtils.cpp"
 	"./src/main.cpp")

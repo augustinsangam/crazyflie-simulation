@@ -1,5 +1,7 @@
 #include "Brain.hpp"
 #include "Constants.hpp"
+#include "MathUtils.hpp"
+#include <spdlog/spdlog.h>
 
 namespace brain {
 
@@ -15,28 +17,25 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 	// spdlog::debug("f: {}, l: {}, b: {}, r: {}", sd->front, sd->left,
 	// sd->back,
 	//               sd->right);
-	// spdlog::info("Desired Pos -> (x: " + std::to_string(desiredPosition_.x())
+	// spdlog::info("Desired Pos -> (x: " +
+	// std::to_string(desired_position_.x())
 	// +
-	//              " y: " + std::to_string(desiredPosition_.y()) +
-	//              " z: " + std::to_string(desiredPosition_.z()) +
+	//              " y: " + std::to_string(desired_position_.y()) +
+	//              " z: " + std::to_string(desired_position_.z()) +
 	//              ") [tolerance=" + std::to_string(0.005) +
-	//              "] yaw: " + std::to_string(desiredAngle_));
+	//              "] yaw: " + std::to_string(desired_angle_));
 	spdlog::info("[simulation_{}] Actual Pos -> (x: {}, y: {}, z: {}, yaw: {}",
 	             id_, x, y, z, cd->yaw);
 
-	NextMove nm{Vec4(0), true, desiredAngle_};
+	NextMove nm{Vec4(0), true, desired_angle_};
 	bool overwrite = false;
 
-	if (battery_level < battery_threshold_ && !is_returning_to_base_ &&
-	    state_ != State::idle) {
-		spdlog::info("[simulation_{}] low battery ({}%)", id_, battery_level);
-		setState(State::return_to_base);
-	}
+	doBatteryChecks(battery_level);
 
 	switch (state_) {
 	case State::idle:
 		// spdlog::info("Idle");
-		nm = {Vec4(0), true, desiredAngle_};
+		nm = {Vec4(0), true, desired_angle_};
 		break;
 
 	case State::take_off:
@@ -51,19 +50,19 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 
 	case State::stabilize:
 		// spdlog::info("Stabilize");
-		if (desiredPosition_.x() - STABILIZE_POS_PRECISION < x &&
-		    x < desiredPosition_.x() + STABILIZE_POS_PRECISION &&
-		    desiredPosition_.y() - STABILIZE_POS_PRECISION < y &&
-		    y < desiredPosition_.y() + STABILIZE_POS_PRECISION &&
-		    desiredPosition_.z() - STABILIZE_POS_PRECISION < z &&
-		    z < desiredPosition_.z() + STABILIZE_POS_PRECISION &&
-		    std::abs(desiredAngle_) - STABILIZE_YAW_PRECISION <
+		if (desired_position_.x() - STABILIZE_POS_PRECISION < x &&
+		    x < desired_position_.x() + STABILIZE_POS_PRECISION &&
+		    desired_position_.y() - STABILIZE_POS_PRECISION < y &&
+		    y < desired_position_.y() + STABILIZE_POS_PRECISION &&
+		    desired_position_.z() - STABILIZE_POS_PRECISION < z &&
+		    z < desired_position_.z() + STABILIZE_POS_PRECISION &&
+		    std::abs(desired_angle_) - STABILIZE_YAW_PRECISION <
 		        std::abs(cd->yaw) &&
 		    std::abs(cd->yaw) <
-		        std::abs(desiredAngle_) + STABILIZE_YAW_PRECISION) {
+		        std::abs(desired_angle_) + STABILIZE_YAW_PRECISION) {
 			state_ = afterStab_;
 		} else {
-			nm = {desiredPosition_, false, desiredAngle_};
+			nm = {desired_position_, false, desired_angle_};
 		}
 		break;
 
@@ -75,8 +74,8 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 			nm = {Vec4(x, y, z), false, cd->yaw + delta_angle};
 			dodging_ = true;
 		} else {
-			if (desiredAngle_ - DODGE_PRECISION < cd->yaw &&
-			    cd->yaw < desiredAngle_ + DODGE_PRECISION) {
+			if (desired_angle_ - DODGE_PRECISION < cd->yaw &&
+			    cd->yaw < desired_angle_ + DODGE_PRECISION) {
 				// "Reached target angle. Stopping rotation"
 				overwrite = true;
 				nm = {Vec4(x, y, z), false, cd->yaw};
@@ -99,12 +98,13 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 		}
 		nm = {is_returning_to_base_ ? auto_pilot_target_position_
 		                            : Vec4(x, y, 0),
-		      false, desiredAngle_};
+		      false, desired_angle_};
 		break;
 
 	case State::return_to_base: {
 		spdlog::info("[simulation_{}] returning to base", id_);
-		float angle = computeDirectionToBase(Vec4(x, y, z));
+		float angle =
+		    MathUtils::computeDirectionToBase(Vec4(x, y, z), initial_pos_);
 		auto_pilot_target_position_ =
 		    Vec4(angle, initial_pos_.x(), initial_pos_.y(), 0);
 		is_returning_to_base_ = true;
@@ -121,25 +121,22 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 				// "Starting rotation"
 				float_t delta_angle;
 				if (sd->right > 1024 || sd->left > 1024) {
-					delta_angle = PI / 12.0F;
+					delta_angle = MathUtils::PI_f / 12.0F;
 				} else {
-					delta_angle =
-					    sd->right < sd->left ? PI / 12.0F : -(PI / 12.0F);
+					delta_angle = sd->right < sd->left
+					                  ? MathUtils::PI_f / 12.0F
+					                  : -(MathUtils::PI_f / 12.0F);
 				}
-				desiredAngle_ = cd->yaw + delta_angle;
-				if (desiredAngle_ > PI) {
-					desiredAngle_ -= 2 * PI;
-				} else if (desiredAngle_ < -PI) {
-					desiredAngle_ += 2 * PI;
-				}
+				desired_angle_ = cd->yaw + delta_angle;
+				MathUtils::wrapToPi(&desired_angle_);
 				nm = {Vec4(x, y, z), false, cd->yaw + delta_angle};
 				dodging_ = true;
 			} else {
 				// spdlog::info("Rotating (current " + std::to_string(cd->yaw) +
-				//              " target " + std::to_string(desiredAngle_) +
+				//              " target " + std::to_string(desired_angle_) +
 				//              ")");
-				if (desiredAngle_ - DODGE_PRECISION < cd->yaw &&
-				    cd->yaw < desiredAngle_ + DODGE_PRECISION) {
+				if (desired_angle_ - DODGE_PRECISION < cd->yaw &&
+				    cd->yaw < desired_angle_ + DODGE_PRECISION) {
 					// "Reached target angle. Stopping rotation"
 					overwrite = true;
 					nm = {Vec4(x, y, z), false, cd->yaw};
@@ -158,13 +155,14 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 				// stop and try again to go to the base
 				counter_ = 0;
 				nm = {Vec4(x, y, z), false,
-				      computeDirectionToBase(Vec4(x, y, z))};
+				      MathUtils::computeDirectionToBase(Vec4(x, y, z),
+				                                        initial_pos_)};
 				avoiding_ = false;
 				state_ = State::auto_pilot;
 				break;
 			}
 			// advance for a while
-			nm = {Vec4(0, -0.03F, 0), true, desiredAngle_};
+			nm = {Vec4(0, -0.03F, 0), true, desired_angle_};
 		}
 		break;
 	}
@@ -180,7 +178,7 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 			state_ = stabilize;
 			break;
 		}
-		nm = {Vec4(0, -0.03F, 0), true, desiredAngle_};
+		nm = {Vec4(0, -0.03F, 0), true, desired_angle_};
 		overwrite = true;
 		if (is_returning_to_base_) {
 			if (auto_pilot_target_position_.x() - LAND_PRECISION < x &&
@@ -204,46 +202,41 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 
 void Brain::setupStabilization(Vec4 position, float_t orientation,
                                State next_state) {
-	desiredPosition_ = position;
-	desiredAngle_ = orientation;
+	desired_position_ = position;
+	desired_angle_ = orientation;
 	afterStab_ = next_state;
-}
-
-float Brain::computeDirectionToBase(const Vec4 &pos) const {
-	const auto x = pos.x();
-	const auto y = pos.y();
-	float angle;
-
-	if ((x < 0 && y < 0) || (x > 0 && y > 0)) {
-		angle = (x < 0 ? PI / 2 : 3 * PI / 2) + std::abs(std::atan(y / x));
-	} else {
-		angle = (x < 0 ? 0.0F : PI) + std::abs(std::atan(x / y));
-	}
-	if (angle > PI) {
-		angle -= 2 * PI;
-	} else if (angle < -PI) {
-		angle += 2 * PI;
-	}
-	return std::isnan(angle) ? 0.0F : angle;
 }
 
 float_t Brain::getDodgeRotation(const SensorData *sd,
                                 const float_t &currentYaw) {
 	float_t delta_angle;
 	if (dodge_type_ == unset) {
-		delta_angle = sd->right < sd->left ? PI / 12.0F : -(PI / 12.0F);
-		desiredAngle_ = currentYaw + delta_angle;
+		delta_angle = sd->right < sd->left ? MathUtils::PI_f / 12.0F
+		                                   : -(MathUtils::PI_f / 12.0F);
+		desired_angle_ = currentYaw + delta_angle;
 		dodge_type_ = delta_angle <= 0 ? clockwise : counter_clockwise;
 	} else {
-		delta_angle = dodge_type_ == clockwise ? -PI / 12.0F : PI / 12.0F;
-		desiredAngle_ = currentYaw + delta_angle;
+		delta_angle = dodge_type_ == clockwise ? -MathUtils::PI_f / 12.0F
+		                                       : MathUtils::PI_f / 12.0F;
+		desired_angle_ = currentYaw + delta_angle;
 	}
-	if (desiredAngle_ > PI) {
-		desiredAngle_ -= 2 * PI;
-	} else if (desiredAngle_ < -PI) {
-		desiredAngle_ += 2 * PI;
-	}
+	MathUtils::wrapToPi(&desired_angle_);
 	return delta_angle;
+}
+
+void Brain::doBatteryChecks(const double &battery_level) {
+	if (battery_level < BATTERY_THRESHOLD_RTB && !is_returning_to_base_ &&
+	    state_ != State::idle) {
+		spdlog::info("[simulation_{}] low battery ({}%)", id_, battery_level);
+		state_ = State::return_to_base;
+	}
+
+	if (battery_level < BATTERY_THRESHOLD_EMERGENCY && state_ != State::idle) {
+		spdlog::warn(
+		    "[simulation_{}] dead battery ({}%), amorcing emergency landing",
+		    id_, battery_level);
+		state_ = land;
+	}
 }
 
 } // namespace brain

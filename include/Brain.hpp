@@ -3,6 +3,7 @@
 
 #include "CameraData.hpp"
 #include "Constants.hpp"
+#include "MathUtils.hpp"
 #include "SensorData.hpp"
 #include "Vec4.hpp"
 #include <argos3/core/utility/math/angles.h>
@@ -44,9 +45,7 @@ enum Dodger { clockwise, counter_clockwise, unset };
  */
 class Brain {
 
-	float_t PI = 3.141593F;
 	uint16_t id_;
-	static constexpr double battery_threshold_ = 0.60;
 	State state_{};
 	State afterStab_{};
 	bool dodging_ = false;
@@ -61,15 +60,11 @@ class Brain {
 	NextMove lastMove_{Vec4(0), true, 0};
 
 	int counter_ = 0;
-	float_t desiredAngle_ = 0;
-	Vec4 desiredPosition_ = Vec4(0);
+	float_t desired_angle_ = 0;
+	Vec4 desired_position_ = Vec4(0);
 
-	void land();
-	void takeOff();
-	void doSquares();
 	void setupStabilization(Vec4 position, float_t orientation,
 	                        State next_state);
-	float computeDirectionToBase(const Vec4 &pos) const;
 
 public:
 	explicit Brain(uint16_t id) : id_(id){};
@@ -99,6 +94,8 @@ public:
 	                                        const SensorData *sd,
 	                                        const double &battery_level);
 	float_t getDodgeRotation(const SensorData *sd, const float_t &currentYaw);
+
+	void doBatteryChecks(const double &battery_level);
 
 	bool isReturningToBase() { return is_returning_to_base_; }
 };
