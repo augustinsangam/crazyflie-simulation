@@ -1,10 +1,20 @@
 #include "Brain.hpp"
 #include "Constants.hpp"
 #include "MathUtils.hpp"
+#include "Vec4.hpp"
 #include <spdlog/spdlog.h>
 
 namespace brain {
 
+/**
+ * @brief x,y,z and yaw are the current position and orientation of the drone at
+ * the time the function is called
+ *
+ * @param cd
+ * @param sd
+ * @param battery_level
+ * @return std::optional<NextMove>
+ */
 std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
                                                const SensorData *sd,
                                                const double &battery_level) {
@@ -13,6 +23,7 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 	float_t x = cd->delta_x + initial_pos_.x();
 	float_t y = cd->delta_y + initial_pos_.y();
 	float_t z = cd->z + initial_pos_.z();
+	float_t yaw = cd->yaw;
 
 	// spdlog::debug("f: {}, l: {}, b: {}, r: {}", sd->front, sd->left,
 	// sd->back,
@@ -24,8 +35,9 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 	//              " z: " + std::to_string(desired_position_.z()) +
 	//              ") [tolerance=" + std::to_string(0.005) +
 	//              "] yaw: " + std::to_string(desired_angle_));
-	spdlog::info("[simulation_{}] Actual Pos -> (x: {}, y: {}, z: {}, yaw: {}",
-	             id_, x, y, z, cd->yaw);
+	spdlog::info(
+	    "[simulation_{}] Actual Pos -> (x: {}, y: {}, z: {}, yaw: {}), s={}",
+	    id_, x, y, z, yaw, state_);
 
 	NextMove nm{Vec4(0), true, desired_angle_};
 	bool overwrite = false;
@@ -33,65 +45,57 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 	doBatteryChecks(battery_level);
 
 	switch (state_) {
-	case State::idle:
-		// spdlog::info("Idle");
+	case State::idle: {
 		nm = {Vec4(0), true, desired_angle_};
 		break;
+	}
 
-	case State::take_off:
-		// spdlog::info("Take Off");
+	case State::take_off: {
 		if (cd->z >= ALTITUDE_STEP * id_) {
-			setupStabilization(Vec4(x, y, ALTITUDE_STEP * id_), cd->yaw,
+			setupStabilization(Vec4(x, y, ALTITUDE_STEP * id_), yaw,
 			                   State::auto_pilot);
 			state_ = stabilize;
 		}
-		nm = {Vec4(x, y, ALTITUDE_STEP * id_), false, cd->yaw};
+		nm = {Vec4(x, y, ALTITUDE_STEP * id_), false, yaw};
 		break;
+	}
 
-	case State::stabilize:
+	case State::stabilize: {
 		// spdlog::info("Stabilize");
-		if (desired_position_.x() - STABILIZE_POS_PRECISION < x &&
-		    x < desired_position_.x() + STABILIZE_POS_PRECISION &&
-		    desired_position_.y() - STABILIZE_POS_PRECISION < y &&
-		    y < desired_position_.y() + STABILIZE_POS_PRECISION &&
-		    desired_position_.z() - STABILIZE_POS_PRECISION < z &&
-		    z < desired_position_.z() + STABILIZE_POS_PRECISION &&
-		    std::abs(desired_angle_) - STABILIZE_YAW_PRECISION <
-		        std::abs(cd->yaw) &&
-		    std::abs(cd->yaw) <
-		        std::abs(desired_angle_) + STABILIZE_YAW_PRECISION) {
-			state_ = afterStab_;
-		} else {
-			nm = {desired_position_, false, desired_angle_};
+		if (isStabilized(Vec4(yaw, x, y, z))) {
+			state_ = next_state_;
+			break;
 		}
+		nm = {desired_position_, false, desired_angle_};
 		break;
+	}
 
-	case State::dodge:
+	case State::dodge: {
 		// spdlog::info("dodge");
 		if (!dodging_) {
 			// "Starting rotation"
-			float_t delta_angle = getDodgeRotation(sd, cd->yaw);
-			nm = {Vec4(x, y, z), false, cd->yaw + delta_angle};
+			float_t delta_angle = getDodgeRotation(sd, yaw);
+			nm = {Vec4(x, y, z), false, yaw + delta_angle};
 			dodging_ = true;
-		} else {
-			if (desired_angle_ - DODGE_PRECISION < cd->yaw &&
-			    cd->yaw < desired_angle_ + DODGE_PRECISION) {
-				// "Reached target angle. Stopping rotation"
-				overwrite = true;
-				nm = {Vec4(x, y, z), false, cd->yaw};
-				if (sd->front > WALL_DISTANCE_THRESH_FRONT) {
-					// "Nothing in front of me, auto_pilot now"
-					state_ = auto_pilot;
-					dodge_type_ = unset;
-				}
-				// "Something still in front of me, restarting a rotation"
-				dodging_ = false;
+			break;
+		}
+		if (desired_angle_ - DODGE_PRECISION < yaw &&
+		    yaw < desired_angle_ + DODGE_PRECISION) {
+			// "Reached target angle. Stopping rotation"
+			overwrite = true;
+			nm = {Vec4(x, y, z), false, yaw};
+			if (sd->front > WALL_DISTANCE_THRESH_FRONT) {
+				// "Nothing in front of me, auto_pilot now"
+				state_ = auto_pilot;
+				dodge_type_ = unset;
 			}
+			// "Something still in front of me, restarting a rotation"
+			dodging_ = false;
 		}
 		break;
+	}
 
-	case State::land:
-		// spdlog::info("Land");
+	case State::land: {
 		if (cd->z < 0.01F) {
 			state_ = State::idle;
 			is_returning_to_base_ = false;
@@ -100,6 +104,7 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 		                            : Vec4(x, y, 0),
 		      false, desired_angle_};
 		break;
+	}
 
 	case State::return_to_base: {
 		spdlog::info("[simulation_{}] returning to base", id_);
@@ -115,64 +120,42 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 	}
 
 	case State::avoid_obstacle: {
-		// spdlog::info("avoid_obstacle");
 		if (!avoiding_) {
 			if (!dodging_) {
-				// "Starting rotation"
-				float_t delta_angle;
-				if (sd->right > 1024 || sd->left > 1024) {
-					delta_angle = MathUtils::PI_f / 12.0F;
-				} else {
-					delta_angle = sd->right < sd->left
-					                  ? MathUtils::PI_f / 12.0F
-					                  : -(MathUtils::PI_f / 12.0F);
-				}
-				desired_angle_ = cd->yaw + delta_angle;
-				MathUtils::wrapToPi(&desired_angle_);
-				nm = {Vec4(x, y, z), false, cd->yaw + delta_angle};
+				float_t delta_angle = getDodgeRotation(sd, yaw);
+				nm = {Vec4(x, y, z), false, yaw + delta_angle};
 				dodging_ = true;
 			} else {
-				// spdlog::info("Rotating (current " + std::to_string(cd->yaw) +
-				//              " target " + std::to_string(desired_angle_) +
-				//              ")");
-				if (desired_angle_ - DODGE_PRECISION < cd->yaw &&
-				    cd->yaw < desired_angle_ + DODGE_PRECISION) {
-					// "Reached target angle. Stopping rotation"
+				if (desired_angle_ - DODGE_PRECISION < yaw &&
+				    yaw < desired_angle_ + DODGE_PRECISION) {
 					overwrite = true;
-					nm = {Vec4(x, y, z), false, cd->yaw};
+					nm = {Vec4(x, y, z), false, yaw};
 					if (sd->front > WALL_DISTANCE_THRESH_FRONT) {
-						// "Nothing in front of me, correct the orientation and
-						// auto_pilot now"
 						avoiding_ = true;
 					}
-					// "Something still in front of me, restarting a rotation"
 					dodging_ = false;
 				}
 			}
-		} else {
-			// nothing in front of me, now start to advance for a while
-			if (++counter_ > 25) {
-				// stop and try again to go to the base
-				counter_ = 0;
-				nm = {Vec4(x, y, z), false,
-				      MathUtils::computeDirectionToBase(Vec4(x, y, z),
-				                                        initial_pos_)};
-				avoiding_ = false;
-				state_ = State::auto_pilot;
-				break;
-			}
-			// advance for a while
-			nm = {Vec4(0, -0.03F, 0), true, desired_angle_};
+			break;
 		}
+		if (++counter_ > 25) {
+			counter_ = 0;
+			nm = {
+			    Vec4(x, y, z), false,
+			    MathUtils::computeDirectionToBase(Vec4(x, y, z), initial_pos_)};
+			avoiding_ = false;
+			state_ = State::auto_pilot;
+			break;
+		}
+		nm = {Vec4(0, -0.03F, 0), true, desired_angle_};
 		break;
 	}
 
 	case State::auto_pilot: {
-		// spdlog::info("auto_pilot");
 		if (sd->front < WALL_DISTANCE_THRESH_FRONT ||
 		    sd->left < WALL_DISTANCE_THRESH_SIDE ||
 		    sd->right < WALL_DISTANCE_THRESH_SIDE) {
-			setupStabilization(Vec4(x, y, z), cd->yaw,
+			setupStabilization(Vec4(x, y, z), yaw,
 			                   is_returning_to_base_ ? State::avoid_obstacle
 			                                         : State::dodge);
 			state_ = stabilize;
@@ -192,11 +175,11 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 		break;
 	}
 	}
-	if (nm.coords == lastMove_.coords && nm.relative == lastMove_.relative &&
-	    nm.yaw == lastMove_.yaw && !overwrite) {
+	if (nm.coords == last_move_.coords && nm.relative == last_move_.relative &&
+	    nm.yaw == last_move_.yaw && !overwrite) {
 		return std::nullopt;
 	}
-	lastMove_ = nm;
+	last_move_ = nm;
 	return nm;
 }
 
@@ -204,7 +187,7 @@ void Brain::setupStabilization(Vec4 position, float_t orientation,
                                State next_state) {
 	desired_position_ = position;
 	desired_angle_ = orientation;
-	afterStab_ = next_state;
+	next_state_ = next_state;
 }
 
 float_t Brain::getDodgeRotation(const SensorData *sd,
@@ -232,11 +215,24 @@ void Brain::doBatteryChecks(const double &battery_level) {
 	}
 
 	if (battery_level < BATTERY_THRESHOLD_EMERGENCY && state_ != State::idle) {
-		spdlog::warn(
-		    "[simulation_{}] dead battery ({}%), amorcing emergency landing",
-		    id_, battery_level);
+		spdlog::warn("[simulation_{}] dead battery ({}%), amorcing "
+		             "emergency landing",
+		             id_, battery_level);
 		state_ = land;
 	}
+}
+
+bool Brain::isStabilized(const Vec4 &pos) {
+	return desired_position_.x() - STABILIZE_POS_PRECISION < pos.x() &&
+	       pos.x() < desired_position_.x() + STABILIZE_POS_PRECISION &&
+	       desired_position_.y() - STABILIZE_POS_PRECISION < pos.y() &&
+	       pos.y() < desired_position_.y() + STABILIZE_POS_PRECISION &&
+	       desired_position_.z() - STABILIZE_POS_PRECISION < pos.z() &&
+	       pos.z() < desired_position_.z() + STABILIZE_POS_PRECISION &&
+	       std::abs(desired_angle_) - STABILIZE_YAW_PRECISION <
+	           std::abs(pos.w()) &&
+	       std::abs(pos.w()) <
+	           std::abs(desired_angle_) + STABILIZE_YAW_PRECISION;
 }
 
 } // namespace brain

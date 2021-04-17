@@ -26,14 +26,14 @@ struct NextMove {
 };
 
 enum State {
-	idle,
-	take_off,
-	land,
-	auto_pilot,
-	dodge,
-	stabilize,
-	return_to_base,
-	avoid_obstacle
+	idle,           // 0
+	take_off,       // 1
+	land,           // 2
+	auto_pilot,     // 3
+	dodge,          // 4
+	stabilize,      // 5
+	return_to_base, // 6
+	avoid_obstacle  // 7
 };
 
 enum Dodger { clockwise, counter_clockwise, unset };
@@ -47,21 +47,20 @@ class Brain {
 
 	uint16_t id_;
 	State state_{};
-	State afterStab_{};
+	State next_state_{};
 	bool dodging_ = false;
 	bool avoiding_ = false;
 	Vec4 initial_pos_ = Vec4(0);
 	bool is_returning_to_base_ = false;
 	Vec4 auto_pilot_target_position_ = Vec4(0);
 	Dodger dodge_type_ = unset;
-
 	const CameraData *cd_{};
 	const SensorData *sd_{};
-	NextMove lastMove_{Vec4(0), true, 0};
+	NextMove last_move_{Vec4(0), true, 0};
 
 	int counter_ = 0;
-	float_t desired_angle_ = 0;
 	Vec4 desired_position_ = Vec4(0);
+	float_t desired_angle_ = 0;
 
 	void setupStabilization(Vec4 position, float_t orientation,
 	                        State next_state);
@@ -97,7 +96,9 @@ public:
 
 	void doBatteryChecks(const double &battery_level);
 
-	bool isReturningToBase() { return is_returning_to_base_; }
+	bool isStabilized(const Vec4 &pos);
+
+	bool isReturningToBase() const { return is_returning_to_base_; }
 };
 
 } // namespace brain
