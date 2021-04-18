@@ -1,5 +1,4 @@
 #include "conn/Conn.hpp"
-#include "SafePrint.hpp"
 #include <asm-generic/errno.h>
 #include <cassert>
 #include <cerrno>

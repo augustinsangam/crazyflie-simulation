@@ -2,7 +2,7 @@
 #define CONN_CONN_HPP
 
 #include "Chn.hpp"
-#include "gen_buf.hpp"
+#include "GenBuff.hpp"
 #include "state/T.hpp"
 
 #include <condition_variable>

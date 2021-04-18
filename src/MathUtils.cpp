@@ -2,7 +2,6 @@
 #include "Vec4.hpp"
 
 float MathUtils::computeDirectionToBase(const Vec4 &pos, const Vec4 &init_pos) {
-	// TODO use init_pos
 	const auto x = pos.x() + init_pos.x();
 	const auto y = pos.y() + init_pos.y();
 	float angle;

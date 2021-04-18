@@ -1,6 +1,7 @@
 #include "Brain.hpp"
 #include "CameraData.hpp"
 #include "FlowDeck.hpp"
+#include "GenBuff.hpp"
 #include "Proxy.hpp"
 #include "RTStatus.hpp"
 #include "SensorData.hpp"
@@ -8,7 +9,6 @@
 #include "Vec4.hpp"
 #include "cmd/T.hpp"
 #include "conn/Conn.hpp"
-#include "gen_buf.hpp"
 #include <cstdint>
 #include <exception>
 #include <iostream>
@@ -43,7 +43,7 @@
 
 static uint16_t mainId = 1; // NOLINT
 
-class CCrazyflieSensing : public argos::CCI_Controller { // NOLINT
+class CCrazyflieController : public argos::CCI_Controller { // NOLINT
 private:
 	// 8 ticks per second
 	static constexpr const uint8_t tick_rate_{8};
@@ -76,26 +76,31 @@ private:
 	FlowDeck flow_deck_{};
 
 public:
-	/* Class constructor. */
-	CCrazyflieSensing()
+	/**
+	 * @brief Constructor
+	 *
+	 */
+	CCrazyflieController()
 	    : brain_(id_), rt_status_("simulation_" + std::to_string(id_)),
 	      proxy_("simulation_" + std::to_string(id_)) {
 		brain_.setState(brain::idle);
 		spdlog::info("[{}] created", rt_status_.get_name());
 	}
 
-	/* Class destructor. */
-	~CCrazyflieSensing() override = default;
+	/**
+	 * @brief Destructor
+	 *
+	 */
+	~CCrazyflieController() override = default;
 
-	/*
-	 * This function initializes the controller.
-	 * The 't_node' variable points to the <parameters> section in the XML
-	 * file in the <controllers><footbot_diffusion_controller> section.
+	/**
+	 * @brief This function initializes the controller.
+	 *
+	 * @param t_node points to the <parameters> section in the XML
+	 * file in the <controllers><crazyflie_sensing_controller> section.
 	 */
 	void Init(argos::TConfigurationNode & /*t_node*/) override {
 		spdlog::set_level(spdlog::level::trace);
-
-		/**/
 
 		m_pcPropellers = GetActuator<argos::CCI_QuadRotorPositionActuator>(
 		    "quadrotor_position");
@@ -119,15 +124,10 @@ public:
 
 		spdlog::info("[simulation_{}] init position: (x: {}, y: {}, z: {})",
 		             id_, cPos.GetX(), cPos.GetY(), cPos.GetZ());
-
-		/*UNCOMMENT THESE TWO LINES TO AUTOMATICALLY START
-		THE MISSION WHEN THE SIMULATION LAUNCHES */
-		// brain_.setState(brain::State::take_off);
-		// rt_status_.enable();
 	}
 
-	/*
-	 * This function is called once every time step.
+	/**
+	 * @brief This function is called once every time step.
 	 * The length of the time step is set in the XML file.
 	 */
 	void ControlStep() override {
@@ -162,9 +162,6 @@ public:
 			    static_cast<std::uint16_t>((iterDistRead++)->second)};
 		}
 
-		// spdlog::info("{} = x: {}, y: {}, z: {}, yaw: {}", id_,
-		// position.GetX(),
-		//              position.GetY(), position.GetZ(), yaw.GetValue());
 		// Update drone status
 		Vec4 position_vec4 =
 		    Vec4(camera_data.delta_x, camera_data.delta_y, camera_data.z);
@@ -239,4 +236,4 @@ public:
 };
 
 // NOLINTNEXTLINE
-REGISTER_CONTROLLER(CCrazyflieSensing, "crazyflie_sensing_controller")
+REGISTER_CONTROLLER(CCrazyflieController, "crazyflie_controller")

@@ -13,7 +13,7 @@
   <!-- ************************* -->
   <framework>
     <system threads="0" />
-    <experiment length="0" ticks_per_second="8" random_seed="21725" />
+    <experiment length="0" ticks_per_second="8" random_seed="28812" />
   </framework>
 
   <!-- *************** -->
@@ -21,7 +21,7 @@
   <!-- *************** -->
   <controllers>
 
-    <crazyflie_sensing_controller id="ssc" library="libcontroller">
+    <crazyflie_controller id="cf_c" library="libcontroller">
       <actuators>
         <quadrotor_position implementation="default" />
       </actuators>
@@ -31,7 +31,7 @@
         <crazyflie_distance_scanner implementation="rot_z_only" show_rays="true" />
       </sensors>
       <params></params>
-    </crazyflie_sensing_controller>
+    </crazyflie_controller>
 
   </controllers>
 
@@ -58,56 +58,50 @@
     <!-- Drones -->
     <crazyflie id="simulation_1">
       <body position="-0.2,0,0" orientation="270,0,0" />
-      <controller config="ssc" />
+      <controller config="cf_c" />
       <battery model="time_motion" delta="1e-4" pos_delta="1e-4" orient_delta="1e-4" />
     </crazyflie>
     <crazyflie id="simulation_2">
       <body position="0.2,0,0" orientation="90,0,0" />
-      <controller config="ssc" />
+      <controller config="cf_c" />
       <battery model="time_motion" delta="1e-4" pos_delta="1e-4" orient_delta="1e-4" />
     </crazyflie>
     <crazyflie id="simulation_3">
       <body position="0,0.2,0" orientation="180,0,0" />
-      <controller config="ssc" />
+      <controller config="cf_c" />
       <battery model="time_motion" delta="1e-4" pos_delta="1e-4" orient_delta="1e-4" />
     </crazyflie>
     <crazyflie id="simulation_4">
       <body position="0,-0.2,0" orientation="0,0,0" />
-      <controller config="ssc" />
+      <controller config="cf_c" />
       <battery model="time_motion" delta="1e-4" pos_delta="1e-4" orient_delta="1e-4" />
     </crazyflie>
 
-
-    <!--
-      ARGoS:
-       ______ y
-      |
-      |
-      |
-      x
-     -->
     <!-- arena_config -->
-    <distribute>
-      <position method="uniform" min="-2,-2,0" max="2,-0.6,0" />
-      <orientation method="uniform" min="0,0,0" max="360,0,0" />
-      <entity quantity="2" max_trials="1000">
-        <box id="wall_1" size="0.5,0.6,1" movable="false" />
-      </entity>
-    </distribute>
-    <distribute>
-      <position method="uniform" min="-2,0.6,0" max="2,2,0" />
-      <orientation method="uniform" min="0,0,0" max="360,0,0" />
-      <entity quantity="1" max_trials="1000">
-        <box id="wall_2" size="0.5,0.8,1" movable="false" />
-      </entity>
-    </distribute>
-    <distribute>
-      <position method="uniform" min="0.5,-2,0" max="2,2,0" />
-      <orientation method="constant" values="0,0,0" />
-      <entity quantity="1" max_trials="1000">
-        <cylinder id="cylinder" height="1" radius="0.2" movable="false" />
-      </entity>
-    </distribute>
+    <box id="wall_1" size="0.5,0.5,0.6" movable="false">
+      <body position="-0.7,-0.7,0" orientation="0,0,0" />
+    </box>
+    <box id="wall_2" size="0.5,0.5,0.6" movable="false">
+      <body position="-0.7,0.7,0" orientation="0,0,0" />
+    </box>
+    <box id="wall_3" size="0.5,0.5,0.6" movable="false">
+      <body position="0.7,-0.7,0" orientation="0,0,0" />
+    </box>
+    <box id="wall_4" size="0.5,0.5,0.6" movable="false">
+      <body position="0.7,0.7,0" orientation="0,0,0" />
+    </box>
+    <box id="wall_5" size="0.5,0.5,0.6" movable="false">
+      <body position="-2,0,0" orientation="45,0,0" />
+    </box>
+    <box id="wall_6" size="0.5,0.5,0.6" movable="false">
+      <body position="2,0,0" orientation="45,0,0" />
+    </box>
+    <box id="wall_7" size="0.5,0.5,0.6" movable="false">
+      <body position="0,-2,0" orientation="45,0,0" />
+    </box>
+    <box id="wall_8" size="0.5,0.5,0.6" movable="false">
+      <body position="0,2,0" orientation="45,0,0" />
+    </box>
     <!-- arena_config -->
 
   </arena>
