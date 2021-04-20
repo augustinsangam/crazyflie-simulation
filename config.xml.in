@@ -13,7 +13,7 @@
   <!-- ************************* -->
   <framework>
     <system threads="0" />
-    <experiment length="0" ticks_per_second="8" random_seed="36502" />
+    <experiment length="0" ticks_per_second="8" random_seed="@SEED@" />
   </framework>
 
   <!-- *************** -->
@@ -78,26 +78,31 @@
     </crazyflie>
 
     <!-- arena_config -->
-<distribute>
-  <position method="uniform" min="-2,-2,0" max="2,-0.6,0" />
-  <orientation method="uniform" min="0,0,0" max="360,0,0" />
-  <entity quantity="2" max_trials="1000">
-    <box id="wall_1" size="0.5,0.6,1" movable="false" />
-  </entity>
-</distribute><distribute>
-  <position method="uniform" min="-2,0.6,0" max="2,2,0" />
-  <orientation method="uniform" min="0,0,0" max="360,0,0" />
-  <entity quantity="1" max_trials="1000">
-    <box id="wall_2" size="0.5,0.8,1" movable="false" />
-  </entity>
-</distribute><distribute>
-  <position method="uniform" min="0.5,-2,0" max="2,2,0" />
-  <orientation method="constant" values="0,0,0" />
-  <entity quantity="1" max_trials="1000">
-    <cylinder id="cylinder" height="1" radius="0.2" movable="false" />
-  </entity>
-</distribute>
-<!-- arena_config -->
+    <box id="wall_1" size="0.5,0.5,0.6" movable="false">
+      <body position="-0.7,-0.7,0" orientation="0,0,0" />
+    </box>
+    <box id="wall_2" size="0.5,0.5,0.6" movable="false">
+      <body position="-0.7,0.7,0" orientation="0,0,0" />
+    </box>
+    <box id="wall_3" size="0.5,0.5,0.6" movable="false">
+      <body position="0.7,-0.7,0" orientation="0,0,0" />
+    </box>
+    <box id="wall_4" size="0.5,0.5,0.6" movable="false">
+      <body position="0.7,0.7,0" orientation="0,0,0" />
+    </box>
+    <box id="wall_5" size="0.5,0.5,0.6" movable="false">
+      <body position="-2,0,0" orientation="45,0,0" />
+    </box>
+    <box id="wall_6" size="0.5,0.5,0.6" movable="false">
+      <body position="2,0,0" orientation="45,0,0" />
+    </box>
+    <box id="wall_7" size="0.5,0.5,0.6" movable="false">
+      <body position="0,-2,0" orientation="45,0,0" />
+    </box>
+    <box id="wall_8" size="0.5,0.5,0.6" movable="false">
+      <body position="0,2,0" orientation="45,0,0" />
+    </box>
+    <!-- arena_config -->
 
   </arena>
 

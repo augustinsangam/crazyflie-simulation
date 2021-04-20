@@ -97,11 +97,11 @@ RUN cmake \
 RUN ninja
 RUN ninja install
 
-RUN apt-get install -y bash
+RUN apt-get install -y python3
 
 WORKDIR /build
 ENV LD_LIBRARY_PATH=/opt/lib/argos3
 
 CMD cmake /simulation && make && \
-	cp /simulation/config.xml . && \
-	/simulation/launch.sh ${LAUNCH_ARG}
+	/simulation/gen_config.py ${LAUNCH_ARG} && \
+	env PATH=${PATH}:/opt/bin /simulation/launch.sh skip

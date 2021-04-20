@@ -1,20 +1,39 @@
 # Drone - ARGoS3
 
-This repository stores the code that defines the drone behaviour in the ARGoS3
+This repository stores the code that defines the drone behavior in the ARGoS3
 simulator.
 
-## Launch argos simulation
+## Configure a container in a Wayland environment (e.g. argos3 is not installed)
 
-5 arenas are predefined in the simulation. You can specify which one you want to use when launching it :
-```bash
+If you want to launch ARGoS separately in a container without using the docker-compose do this :
+```sh
+# Create the container
+./container.sh build
+
 # Launch a specific arena
- $ ./launch.sh {1,2,3,4,5}
+./container.sh {1,2,3,4,5}
 
 # Launch a random arena
- $ ./launch.sh 0
+./container.sh 0
 
 # Launch the with the last configuration
- $ ./launch.sh
+./container.sh
+```
+
+To install Weston use `$ apt-get install -y weston`.
+
+## Launch argos simulation without container (We assume argos3 is installed)
+
+5 arenas are predefined in the simulation. You can specify which one you want to use when launching it :
+```sh
+# Launch a specific arena
+./launch.sh {1,2,3,4,5}
+
+# Launch a random arena
+./launch.sh 0
+
+# Launch the with the last configuration
+./launch.sh
 ```
 
 ## [Debug commands]
@@ -32,7 +51,7 @@ See https://gitlab.com/polytechnique-montr-al/inf3995/20211/equipe-203/crazyflie
 To generate the project's documentation :
 
 * Install Doxygen
-  ```bash
+  ```sh
   git clone https://github.com/doxygen/doxygen.git
   cd doxygen
   mkdir build && cd build
@@ -43,14 +62,14 @@ To generate the project's documentation :
 * Install the recommended extension in VSCode (Name: Doxygen Documentation Generator https://marketplace.visualstudio.com/items?itemName=cschlosser.doxdocgen)
 
 * Once in a while, run Doxygen. Make sure you are in the root directory of the project (`/simulation`)
-  ```bash
+  ```sh
   doxygen doc/doxygen-config
   ```
 
   The output can be found in the `latex` folders located in `doc`.
 
   To generate a PDF :
-  ```bash
+  ```sh
   cd doc/latex
   make pdf
   ```
