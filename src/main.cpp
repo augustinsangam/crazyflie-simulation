@@ -59,7 +59,6 @@ private:
 	brain::Brain brain_;
 	RTStatus rt_status_;
 	Proxy proxy_;
-	double orientation_ = argos::CRadians::PI_OVER_TWO.GetValue();
 
 	/* Pointer to the position actuator */
 	argos::CCI_QuadRotorPositionActuator *m_pcPropellers{};

@@ -47,7 +47,9 @@ See https://gitlab.com/polytechnique-montr-al/inf3995/20211/equipe-203/crazyflie
 {"type":"land", "data":{"name": "simulation_2"}}
 ```
 
-## Documentation generation
+## Documentation
+This project comes with an automatically generated documentation from the code's docstrings. An example is located in `doc/latex/refman.pdf`
+
 To generate the project's documentation :
 
 * Install Doxygen
