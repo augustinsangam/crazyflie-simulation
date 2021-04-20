@@ -1,4 +1,6 @@
-#!/bin/sh -e
+#!/usr/bin/env bash
+
+set -e
 
 # change arena
 ARENA_INDEX=$1
@@ -18,4 +20,4 @@ cmake -D CMAKE_BUILD_TYPE=Debug ..
 make
 
 # launch the simulation
-argos3 -c ../config.xml
+exec argos3 -c ../config.xml

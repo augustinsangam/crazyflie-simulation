@@ -17,15 +17,6 @@ simulator.
  $ ./launch.sh
 ```
 
-
-## Docker
-```bash
-# Build
-docker build -t argos3-sim .
-# Run the simulator
-x11docker -it --hostdisplay --user=RETAIN -- --network host -- --privileged argos3-sim argos3 -c /drone/config.xml
-```
-
 ## [Debug commands]
 See https://gitlab.com/polytechnique-montr-al/inf3995/20211/equipe-203/crazyflie-project/-/blob/master/communication/protocols.md
 ```json

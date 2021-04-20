@@ -97,10 +97,11 @@ RUN cmake \
 RUN ninja
 RUN ninja install
 
+RUN apt-get install -y bash
+
 WORKDIR /build
 ENV LD_LIBRARY_PATH=/opt/lib/argos3
 
 CMD cmake /simulation && make && \
 	cp /simulation/config.xml . && \
-	bash -c 'sed -i "s/random_seed=\".*\" \/>/random_seed=\"$RANDOM\" \/>/g" ./config.xml' && \
-	/opt/bin/argos3 -c ./config.xml
+	/simulation/launch.sh ${LAUNCH_ARG}
