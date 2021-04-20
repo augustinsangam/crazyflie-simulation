@@ -1,11 +1,4 @@
 #include "Brain.hpp"
-#include "Constants.hpp"
-#include "MathUtils.hpp"
-#include "Vec4.hpp"
-#include <bits/stdint-uintn.h>
-#include <cmath>
-#include <cstdlib>
-#include <spdlog/spdlog.h>
 
 namespace brain {
 
@@ -18,7 +11,7 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 	float_t yaw = cd->yaw;
 
 	NextMove nm{Vec4(0), true, desired_angle_};
-	bool overwrite = false;
+	bool overwrite_instruction = false;
 
 	doBatteryChecks(battery_level);
 
@@ -63,7 +56,7 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 			break;
 		}
 		nm = {Vec4(0, FORWARD_UNIT, 0), true, desired_angle_};
-		overwrite = true;
+		overwrite_instruction = true;
 		if (is_returning_to_base_) {
 			if (initial_pos_.x() - LANDING_ZONE_PRECISION < x &&
 			    x < initial_pos_.x() + LANDING_ZONE_PRECISION &&
@@ -75,6 +68,7 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 		}
 		break;
 	}
+
 	case State::exploration_dodge: {
 		if (!dodging_) {
 			float_t delta_angle = getDodgeRotation(sd, yaw);
@@ -84,7 +78,7 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 		}
 		if (desired_angle_ - DODGE_PRECISION < yaw &&
 		    yaw < desired_angle_ + DODGE_PRECISION) {
-			overwrite = true;
+			overwrite_instruction = true;
 			nm = {Vec4(x, y, z), false, yaw};
 			if (sd->front > WALL_DISTANCE_THRESH_FRONT) {
 				state_ = auto_pilot;
@@ -125,7 +119,7 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 			}
 			if (desired_angle_ - DODGE_PRECISION < yaw &&
 			    yaw < desired_angle_ + DODGE_PRECISION) {
-				overwrite = true;
+				overwrite_instruction = true;
 				nm = {Vec4(x, y, z), false, yaw};
 				if (sd->front > WALL_DISTANCE_THRESH_FRONT) {
 					avoiding_ = true;
@@ -148,8 +142,9 @@ std::optional<NextMove> Brain::computeNextMove(const CameraData *cd,
 		break;
 	}
 	}
+
 	if (nm.coords == last_move_.coords && nm.relative == last_move_.relative &&
-	    nm.yaw == last_move_.yaw && !overwrite) {
+	    nm.yaw == last_move_.yaw && !overwrite_instruction) {
 		return std::nullopt;
 	}
 	last_move_ = nm;
@@ -183,7 +178,8 @@ float_t Brain::getDodgeRotation(const SensorData *sd,
 void Brain::doBatteryChecks(const double &battery_level) {
 	if (battery_level < BATTERY_THRESHOLD_RTB && !is_returning_to_base_ &&
 	    state_ != State::idle) {
-		spdlog::info("[simulation_{}] low battery ({}%)", id_, battery_level);
+		spdlog::info("[simulation_{}] low battery ({}%)", id_,
+		             battery_level * 100);
 		state_ = State::return_to_base;
 	}
 
@@ -191,7 +187,7 @@ void Brain::doBatteryChecks(const double &battery_level) {
 		if (state_ != State::land) {
 			spdlog::warn("[simulation_{}] dead battery ({}%), amorcing "
 			             "emergency landing",
-			             id_, battery_level);
+			             id_, battery_level * 100);
 		}
 		state_ = land;
 	}
