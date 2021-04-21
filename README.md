@@ -1,6 +1,6 @@
-# Drone - ARGoS3
+# Simulation - ARGoS3
 
-This repository stores the code that defines the drone behavior in the ARGoS3
+This repository stores the code that defines the drones' behavior in the ARGoS3
 simulator.
 
 ## Configure a container in a Wayland environment (e.g. argos3 is not installed)
