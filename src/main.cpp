@@ -176,17 +176,22 @@ public:
 				spdlog::info("[simulation_{}] received command {}", id_, *cmd);
 				switch (*cmd) {
 				case cmd::start_mission:
-					brain_.setState(brain::State::take_off);
-					rt_status_.enable();
-					spdlog::info("[simulation_{}] taking off", id_);
+					if (!rt_status_.isFlying()) {
+						brain_.setState(brain::State::take_off);
+						rt_status_.enable();
+						spdlog::info("[simulation_{}] taking off", id_);
+					}
 					break;
 				case cmd::land:
+				case cmd::stop_mission:
 					brain_.setState(brain::State::land);
 					rt_status_.disable();
 					spdlog::info("[simulation_{}] emergency landing", id_);
 					break;
 				case cmd::return_to_base:
-					brain_.setState(brain::State::return_to_base);
+					if (rt_status_.isFlying()) {
+						brain_.setState(brain::State::return_to_base);
+					}
 					break;
 				default:
 					break;

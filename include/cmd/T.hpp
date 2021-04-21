@@ -9,10 +9,9 @@ enum T : std::int_fast8_t {
 	none,
 	pulse,
 	start_mission,
+	stop_mission,
 	land,
-	lighten,
 	return_to_base,
-	darken,
 	take_off,
 };
 } // namespace cmd

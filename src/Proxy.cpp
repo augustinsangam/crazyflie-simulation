@@ -1,13 +1,4 @@
 #include "Proxy.hpp"
-#include "cmd/T.hpp"
-#include <bits/c++config.h>
-#include <cstddef>
-#include <cstdlib> /* std::getenv */
-
-#include <spdlog/spdlog.h>
-#include <tao/json/external/pegtl/parse_error.hpp>
-#include <tao/json/from_string.hpp>
-#include <vector>
 
 static std::string get_env(const std::string &var, const std::string &val) {
 	const auto *var_val = std::getenv(var.c_str());
@@ -16,13 +7,12 @@ static std::string get_env(const std::string &var, const std::string &val) {
 
 static const std::unordered_map<std::string, cmd::T> cmd_map{
     {"", cmd::none},
-    {"darken", cmd::darken},
-    {"land", cmd::land},
-    {"lighten", cmd::lighten},
-    {"pulse", cmd::pulse},
     {"startMission", cmd::start_mission},
+    {"stopMission", cmd::stop_mission},
     {"returnToBase", cmd::return_to_base},
     {"takeOff", cmd::take_off},
+    {"land", cmd::land},
+    {"pulse", cmd::pulse},
 };
 
 static std::shared_ptr<conn::Conn> conn_{};
@@ -72,8 +62,6 @@ void Proxy::send(std::string &&msg) {
 }
 
 void Proxy::recv_cb(gen_buf_t &&msg) {
-	// spdlog::trace("recv_cb entered");
-
 	std::vector<size_t> msg_indexes;
 	for (size_t i = 0; i < msg.second; ++i) {
 		if (msg.first.get()[i] == '\n') {
@@ -91,6 +79,19 @@ void Proxy::recv_cb(gen_buf_t &&msg) {
 
 			const auto &m = v.get_object();
 
+			const auto &type = m.at("type").get_string();
+
+			const auto type_it = cmd_map.find(type);
+			auto cmd =
+			    type_it != cmd_map.end() ? type_it->second : cmd::unknown;
+
+			if (cmd == cmd::stop_mission) {
+				for (const auto &it : recv_boxes_) {
+					it.second->push(cmd);
+				}
+				return;
+			}
+
 			const auto &name = m.at("data").at("name").get_string();
 
 			const auto it = recv_boxes_.find(name);
@@ -98,11 +99,6 @@ void Proxy::recv_cb(gen_buf_t &&msg) {
 				return;
 			}
 
-			const auto &type = m.at("type").get_string();
-
-			const auto type_it = cmd_map.find(type);
-			auto cmd =
-			    type_it != cmd_map.end() ? type_it->second : cmd::unknown;
 			it->second->push(cmd);
 		}
 	} catch (const tao::json::pegtl::parse_error &e) {

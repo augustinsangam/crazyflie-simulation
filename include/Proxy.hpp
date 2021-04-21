@@ -5,10 +5,18 @@
 #include "SharedQueue.hpp"
 #include "cmd/T.hpp"
 #include "conn/Conn.hpp"
-#include <memory> /* std::shared_ptr */
+#include <bits/c++config.h>
+#include <cstddef>
+#include <cstdlib> /* std::getenv */
+#include <memory>  /* std::shared_ptr */
 #include <optional>
 #include <string>
 #include <unordered_map>
+
+#include <spdlog/spdlog.h>
+#include <tao/json/external/pegtl/parse_error.hpp>
+#include <tao/json/from_string.hpp>
+#include <vector>
 
 class Proxy {
 	SharedQueue<cmd::T> recv_box_;

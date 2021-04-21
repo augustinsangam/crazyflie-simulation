@@ -68,11 +68,12 @@ std::string RTStatus::encode() {
 void RTStatus::update(std::float_t battery, const Vec4 &pos, const float_t &yaw,
                       const SensorData &sd, const brain::State &brain_state,
                       const bool &brain_returning_to_base) {
+	battery_ = battery * 100;
+
 	if (!flying_) {
 		return;
 	}
 
-	battery_ = battery * 100;
 	/* 8 is the tickrate in <framework> in config.xml */
 	speed_ = Vec3::norm(Vec3::sub(pos, pos_)) / 8;
 	pos_ = pos;

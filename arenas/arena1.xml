@@ -8,8 +8,8 @@
   <body position="-0.2,1.4,0" orientation="30,0,0" />
 </box><box id="wall_5" size="0.1,2,1" movable="false">
   <body position="1,-1,0" orientation="90,0,0" />
-</box><box id="wall_6" size="0.1,2,1" movable="false">
-  <body position="-1,-1,0" orientation="0,0,0" />
+</box><box id="wall_6" size="0.1,1.5,1" movable="false">
+  <body position="-1,-1.2,0" orientation="0,0,0" />
 </box><box id="wall_7" size="0.1,2,1" movable="false">
   <body position="1,1,0" orientation="0,0,0" />
 </box>
